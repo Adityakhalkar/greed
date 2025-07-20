@@ -16,7 +16,7 @@
   },
   "keywords": ["python", "webassembly", "webgpu", "browser", "pytorch", "numpy", "machine-learning", "ai", "deep-learning", "neural-networks", "tensor", "gpu-acceleration"],
   "author": "Aditya Khalkar <adityakhalkar@example.com>",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "https://github.com/adityakhalkar/greed.git"

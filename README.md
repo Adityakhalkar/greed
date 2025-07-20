@@ -137,22 +137,6 @@ const result = await greed.executeCode(pythonCode, options);
 }
 ```
 
-## WebGPU Performance
-
-Real hardware acceleration for tensor operations:
-
-| Operation | Size | CPU Time | WebGPU Time | Speedup |
-|-----------|------|----------|-------------|---------|
-| Matrix Multiply | 512×512 | 45ms | 3ms | **15x** |
-| Element-wise | 1M elements | 12ms | 0.8ms | **15x** |
-| Reduction | 2M elements | 8ms | 0.5ms | **16x** |
-
-### Smart GPU Thresholds
-- **Matrix operations**: GPU used for 100+ elements
-- **Element-wise**: GPU used for 1000+ elements  
-- **Reductions**: GPU used for 500+ elements
-- **Small operations**: Automatically use CPU to avoid GPU overhead
-
 ## Architecture
 
 ```
@@ -392,7 +376,23 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+This software is dual-licensed under AGPL v3.0 and commercial licenses.
+
+### Open Source License (AGPL v3.0)
+- Free for open source projects and personal use
+- Requires your application to be open-sourced under AGPL v3.0
+- Suitable for academic research and community contributions
+- Must make complete source code available to users
+
+### Commercial License
+- Permits use in proprietary commercial applications
+- Allows keeping application source code confidential
+- No AGPL obligations for end users
+- Includes technical support and maintenance services
+
+For commercial licensing inquiries, contact khalkaraditya8@gmail.com
+
+Complete licensing terms are available in the [LICENSE](LICENSE) file.
 
 ## Acknowledgments
 
