@@ -1,7 +1,7 @@
 /**
- * Complete PyTorch API tests
+ * Complete PyTorch API tests for v2.0
  */
-const { Greed } = require('../src/greed-standalone');
+import Greed from '../src/core/greed-v2.js';
 
 describe('Complete PyTorch API', () => {
   let greed;
@@ -12,14 +12,14 @@ describe('Complete PyTorch API', () => {
   });
 
   afterEach(async () => {
-    if (greed) {
-      await greed.cleanup();
+    if (greed && greed.isInitialized) {
+      await greed.destroy();
     }
   });
 
   describe('Core Tensor Operations', () => {
     test('torch.tensor() should create tensors', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 x = torch.tensor([1, 2, 3])
 print(f"Tensor: {x}")
@@ -32,7 +32,7 @@ x
     });
 
     test('torch.zeros(), torch.ones(), torch.rand() should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 zeros = torch.zeros(2, 3)
 ones = torch.ones(2, 3)
@@ -47,7 +47,7 @@ zeros
     });
 
     test('torch.eye() should create identity matrix', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 eye = torch.eye(3)
 print(f"Identity matrix shape: {eye.shape}")
@@ -58,7 +58,7 @@ eye
     });
 
     test('torch.cat() and torch.stack() should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 a = torch.tensor([1, 2])
 b = torch.tensor([3, 4])
@@ -73,7 +73,7 @@ cat_result
     });
 
     test('Reshape and view operations should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 x = torch.tensor([[1, 2], [3, 4]])
 reshaped = x.reshape(4)
@@ -88,7 +88,7 @@ reshaped
     });
 
     test('Reduction operations should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 x = torch.tensor([[1, 2], [3, 4]], dtype=torch.float32)
 mean_val = torch.mean(x)
@@ -106,7 +106,7 @@ mean_val
 
   describe('Autograd Functionality', () => {
     test('requires_grad should enable gradient tracking', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 x = torch.tensor([1.0, 2.0], requires_grad=True)
 y = x.sum()
@@ -120,7 +120,7 @@ x.grad
     });
 
     test('torch.no_grad() should disable gradients', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 x = torch.tensor([1.0, 2.0], requires_grad=True)
 with torch.no_grad():
@@ -134,7 +134,7 @@ y
 
   describe('Neural Network Layers', () => {
     test('nn.Linear should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 import torch.nn as nn
 linear = nn.Linear(3, 2)
@@ -150,7 +150,7 @@ output
     });
 
     test('Activation functions should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 import torch.nn as nn
 relu = nn.ReLU()
@@ -167,7 +167,7 @@ relu_out
     });
 
     test('nn.Sequential should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 import torch.nn as nn
 model = nn.Sequential(
@@ -187,7 +187,7 @@ output
 
   describe('Loss Functions', () => {
     test('nn.MSELoss should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 import torch.nn as nn
 mse_loss = nn.MSELoss()
@@ -201,7 +201,7 @@ loss
     });
 
     test('nn.CrossEntropyLoss should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 import torch.nn as nn
 ce_loss = nn.CrossEntropyLoss()
@@ -217,7 +217,7 @@ loss
 
   describe('Optimizers', () => {
     test('optim.SGD should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -238,7 +238,7 @@ loss
     });
 
     test('optim.Adam should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 import torch.optim as optim
 model = torch.nn.Linear(2, 1)
@@ -254,7 +254,7 @@ optimizer
 
   describe('Device Management', () => {
     test('torch.device should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 cpu_device = torch.device('cpu')
 cuda_available = torch.cuda.is_available()
@@ -267,7 +267,7 @@ cpu_device
     });
 
     test('tensor.to() should work for device transfer', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 x = torch.tensor([1, 2, 3])
 device = torch.device('cpu')
@@ -282,7 +282,7 @@ x_cpu
 
   describe('Data Loading', () => {
     test('TensorDataset should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 x = torch.randn(100, 3)
@@ -300,7 +300,7 @@ dataset
 
   describe('Save/Load Operations', () => {
     test('torch.save and torch.load should work', async () => {
-      const result = await greed.executeCode(`
+      const result = await greed.run(`
 import torch
 import io
 x = torch.tensor([1, 2, 3])

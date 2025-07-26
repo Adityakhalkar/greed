@@ -1,8 +1,8 @@
 /**
- * Core functionality tests for Greed.js
+ * Core functionality tests for Greed.js v2.0
  */
 
-const { Greed } = require('../src/greed-improved');
+import Greed from '../src/core/greed-v2.js';
 
 describe('Greed Core', () => {
   let greed;
@@ -23,15 +23,15 @@ describe('Greed Core', () => {
   
   describe('Initialization', () => {
     test('should initialize successfully', async () => {
-      await greed.init();
-      expect(greed.initialized).toBe(true);
-      expect(greed.getStatus().initialized).toBe(true);
+      await greed.initialize();
+      expect(greed.isInitialized).toBe(true);
+      expect(greed.getStats().isInitialized).toBe(true);
     });
     
     test('should not initialize twice', async () => {
-      await greed.init();
-      await greed.init(); // Should not throw
-      expect(greed.initialized).toBe(true);
+      await greed.initialize();
+      await greed.initialize(); // Should not throw
+      expect(greed.isInitialized).toBe(true);
     });
     
     test('should validate configuration', () => {
@@ -41,9 +41,14 @@ describe('Greed Core', () => {
     });
     
     test('should create secure configuration', () => {
-      const secureGreed = Greed.createSecure();
-      expect(secureGreed.config.security.enableCodeSanitization).toBe(true);
-      expect(secureGreed.config.security.allowDangerousOperations).toBe(false);
+      const secureGreed = new Greed({
+        strictSecurity: true,
+        allowEval: false,
+        allowFileSystem: false,
+        allowNetwork: false
+      });
+      expect(secureGreed.config.strictSecurity).toBe(true);
+      expect(secureGreed.config.allowEval).toBe(false);
     });
   });
   

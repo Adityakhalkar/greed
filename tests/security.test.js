@@ -1,23 +1,26 @@
 /**
- * Security tests for Greed.js
+ * Security tests for Greed.js v2.0
  */
 
-const { SecurityConfig } = require('../src/config/security');
-const { Greed } = require('../src/greed-improved');
+import SecurityValidator from '../src/utils/security-validator.js';
+import Greed from '../src/core/greed-v2.js';
 
 describe('Security', () => {
-  describe('SecurityConfig', () => {
-    test('should sanitize URLs correctly', () => {
-      const validUrl = 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/';
-      expect(SecurityConfig.sanitizeURL(validUrl)).toBe(validUrl);
+  describe('SecurityValidator', () => {
+    let validator;
+    
+    beforeEach(() => {
+      validator = new SecurityValidator();
+    });
+    
+    test('should validate Python code correctly', () => {
+      const safeCode = 'import numpy as np\nx = np.array([1, 2, 3])';
+      const result = validator.validatePythonCode(safeCode);
+      expect(result.allowed).toBe(true);
       
-      expect(() => {
-        SecurityConfig.sanitizeURL('http://malicious.com/script.js');
-      }).toThrow('Only HTTPS URLs are allowed');
-      
-      expect(() => {
-        SecurityConfig.sanitizeURL('https://evil.com/malware.js');
-      }).toThrow('Untrusted CDN host');
+      const dangerousCode = 'import os\nos.system("rm -rf /")';
+      const dangerousResult = validator.validatePythonCode(dangerousCode);
+      expect(dangerousResult.allowed).toBe(false);
     });
     
     test('should validate Pyodide versions', () => {
@@ -91,9 +94,12 @@ describe('Security', () => {
     });
     
     test('should block eval usage', async () => {
-      const result = await greed.run('eval("print(\\'hacked\\')")');
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Dangerous code pattern detected');
+      try {
+        await greed.run('eval("print(\'hacked\')")');
+        expect(false).toBe(true); // Should not reach here
+      } catch (error) {
+        expect(error.message).toContain('Security validation failed');
+      }
     });
     
     test('should block exec usage', async () => {

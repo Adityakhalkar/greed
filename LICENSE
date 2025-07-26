@@ -1,82 +1,21 @@
-GREED.JS SOFTWARE LICENSE AGREEMENT
+MIT License
 
-Copyright (c) 2025 Aditya Khalkar. All rights reserved.
+Copyright (c) 2024 Aditya Khalkar
 
-This software and associated documentation files (the "Software") are made 
-available under the terms of this dual licensing agreement. You may choose 
-to use the Software under either:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-(1) The GNU Affero General Public License version 3.0 (AGPL-3.0), or
-(2) A commercial license agreement
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-------------------------------------------------------------------------------
-
-1. OPEN SOURCE LICENSE (AGPL-3.0)
-
-The Software is licensed under the GNU Affero General Public License version 3.0 
-(AGPL-3.0). Under this license, you are free to use, modify, and distribute the 
-Software, subject to the following conditions:
-
-a) You must comply with all terms of the AGPL-3.0 license
-b) Any modifications to the Software must be made available under AGPL-3.0
-c) If you use the Software in a network application or web service, you must 
-   make the complete source code of your application available to all users 
-   under AGPL-3.0
-d) You must include appropriate copyright notices and license information
-
-The full text of the AGPL-3.0 license is available at:
-https://www.gnu.org/licenses/agpl-3.0.html
-
-------------------------------------------------------------------------------
-
-2. COMMERCIAL LICENSE
-
-If you wish to use the Software in a commercial application without complying 
-with the AGPL-3.0 requirements, you must obtain a separate commercial license. 
-A commercial license permits you to:
-
-a) Use the Software in proprietary commercial applications
-b) Keep your application source code confidential
-c) Distribute your application without AGPL-3.0 obligations
-d) Receive technical support and maintenance services
-
-To obtain a commercial license, contact:
-Email: khalkaraditya8@gmail.com
-Subject: Commercial License Inquiry - Greed.js
-
-Your inquiry must include:
-- Organization name and contact information
-- Description of intended use
-- Estimated number of end users
-- Commercial application details
-
-Commercial licensing terms, including fees, will be negotiated separately 
-for each use case.
-
-------------------------------------------------------------------------------
-
-3. CONTRIBUTIONS
-
-By submitting contributions to this project, you agree that:
-
-a) Your contributions will be licensed under both the AGPL-3.0 and any 
-   commercial licenses granted for the Software
-b) You have the right to make such contributions
-c) You grant the copyright holder perpetual, irrevocable rights to use, 
-   modify, and distribute your contributions
-
-------------------------------------------------------------------------------
-
-4. DISCLAIMER OF WARRANTY
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-------------------------------------------------------------------------------
-
-For questions regarding this license agreement, contact khalkaraditya8@gmail.com

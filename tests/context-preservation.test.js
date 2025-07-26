@@ -1,8 +1,8 @@
 /**
- * Context preservation and variable redefinition tests
+ * Context preservation and variable redefinition tests for v2.0
  */
 
-const { Greed } = require('../src/greed-standalone');
+import Greed from '../src/core/greed-v2.js';
 
 describe('Context Preservation', () => {
   let greed;
