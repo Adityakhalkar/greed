@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGPU PyTorch Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #e2f3ff; color: #31708f; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .code-block {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 GreedJS WebGPU PyTorch Test</h1>
+        
+        <div class="test-section">
+            <h3>System Initialization</h3>
+            <div id="init-status" class="loading">Initializing GreedJS...</div>
+            <button id="init-btn" onclick="initializeSystem()" disabled>Initialize</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Python PyTorch Code Test</h3>
+            <p>This test runs pure Python PyTorch code that executes on WebGPU:</p>
+            
+            <div class="code-block">import torch
+
+# Create tensors using pure Python PyTorch syntax
+x = torch.tensor([[1, 2], [3, 4]], dtype=torch.float32)
+y = torch.tensor([[2, 0], [1, 2]], dtype=torch.float32)
+
+# Perform operations - all run on WebGPU compute shaders
+z = x + y  # Addition
+w = torch.matmul(x, y)  # Matrix multiplication
+s = torch.sum(x)  # Reduction
+
+print(f"x: {x}")
+print(f"y: {y}")
+print(f"x + y: {z}")
+print(f"matmul(x, y): {w}")
+print(f"sum(x): {s}")
+
+# Neural network test
+import torch.nn as nn
+model = nn.Sequential(
+    nn.Linear(2, 4),
+    nn.ReLU(),
+    nn.Linear(4, 1)
+)
+
+input_data = torch.tensor([[1.0, 2.0]])
+output = model(input_data)
+print(f"Neural network output: {output}")
+</div>
+            
+            <button id="run-pytorch-btn" onclick="runPyTorchTest()" disabled>Run Python PyTorch Test</button>
+            <div id="pytorch-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>WebGPU Device Information</h3>
+            <button id="device-info-btn" onclick="checkDeviceInfo()" disabled>Check WebGPU Device</button>
+            <div id="device-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Performance Comparison</h3>
+            <button id="perf-btn" onclick="runPerformanceTest()" disabled>Run Performance Test</button>
+            <div id="perf-results"></div>
+        </div>
+    </div>
+
+    <script>
+        let greed = null;
+        
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.textContent = message;
+            container.appendChild(div);
+        }
+
+        async function initializeSystem() {
+            const statusDiv = document.getElementById('init-status');
+            const button = document.getElementById('init-btn');
+            
+            try {
+                statusDiv.textContent = 'Loading GreedJS...';
+                
+                // Import GreedJS
+                const GreedModule = await import('./dist/greed.js');
+                greed = new GreedModule.default({
+                    enableWebGPU: true,
+                    maxMemoryMB: 512
+                });
+                
+                statusDiv.textContent = 'Initializing WebGPU PyTorch runtime...';
+                await greed.initialize();
+                
+                statusDiv.innerHTML = '<span class="success">✅ System initialized successfully!</span>';
+                
+                // Enable other buttons
+                document.getElementById('run-pytorch-btn').disabled = false;
+                document.getElementById('device-info-btn').disabled = false;
+                document.getElementById('perf-btn').disabled = false;
+                button.disabled = true;
+                
+                addResult('init-status', 'WebGPU PyTorch runtime ready!', 'success');
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<span class="error">❌ Initialization failed: ${error.message}</span>`;
+                addResult('init-status', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function runPyTorchTest() {
+            const resultsDiv = document.getElementById('pytorch-results');
+            resultsDiv.innerHTML = '';
+            
+            const pythonCode = `
+import torch
+
+# Create tensors using pure Python PyTorch syntax  
+x = torch.tensor([[1, 2], [3, 4]], dtype=torch.float32)
+y = torch.tensor([[2, 0], [1, 2]], dtype=torch.float32)
+
+# Perform operations - all run on WebGPU compute shaders
+z = x + y  # Addition
+w = torch.matmul(x, y)  # Matrix multiplication  
+s = torch.sum(x)  # Reduction
+
+print(f"x: {x}")
+print(f"y: {y}")  
+print(f"x + y: {z}")
+print(f"matmul(x, y): {w}")
+print(f"sum(x): {s}")
+
+# Neural network test
+import torch.nn as nn
+model = nn.Sequential(
+    nn.Linear(2, 4),
+    nn.ReLU(),
+    nn.Linear(4, 1)
+)
+
+input_data = torch.tensor([[1.0, 2.0]])
+output = model(input_data)
+print(f"Neural network output: {output}")
+
+# Return test results
+"Python PyTorch test completed successfully!"
+`;
+
+            try {
+                addResult('pytorch-results', 'Running Python PyTorch code...', 'info');
+                
+                const startTime = performance.now();
+                const result = await greed.runtime.runPython(pythonCode, { captureOutput: true });
+                const endTime = performance.now();
+                
+                addResult('pytorch-results', `✅ Python code executed in ${(endTime - startTime).toFixed(2)}ms`, 'success');
+                addResult('pytorch-results', `Output: ${result}`, 'success');
+                
+                // Check if WebGPU operations actually ran
+                const stats = greed.getStats();
+                addResult('pytorch-results', `Tensor operations: ${stats.operations || 0}`, 'info');
+                
+            } catch (error) {
+                addResult('pytorch-results', `❌ Python test failed: ${error.message}`, 'error');
+                console.error('PyTorch test error:', error);
+            }
+        }
+
+        async function checkDeviceInfo() {
+            const resultsDiv = document.getElementById('device-results');
+            resultsDiv.innerHTML = '';
+            
+            try {
+                // Check WebGPU availability
+                if (navigator.gpu) {
+                    const adapter = await navigator.gpu.requestAdapter();
+                    if (adapter) {
+                        addResult('device-results', '✅ WebGPU adapter found', 'success');
+                        addResult('device-results', `Adapter: ${adapter.info?.vendor || 'Unknown'} ${adapter.info?.device || ''}`, 'info');
+                        
+                        const device = await adapter.requestDevice();
+                        addResult('device-results', '✅ WebGPU device acquired', 'success');
+                        
+                        // Test with Python
+                        const result = await greed.runtime.runPython(`
+import torch
+print(f"CUDA available (WebGPU): {torch.cuda.is_available()}")
+device = torch.cuda if torch.cuda.is_available() else torch.device('cpu')
+print(f"Default device: {device}")
+                        `, { captureOutput: true });
+                        
+                        addResult('device-results', result, 'success');
+                    } else {
+                        addResult('device-results', '❌ No WebGPU adapter available', 'error');
+                    }
+                } else {
+                    addResult('device-results', '❌ WebGPU not supported in this browser', 'error');
+                }
+                
+            } catch (error) {
+                addResult('device-results', `❌ Device check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function runPerformanceTest() {
+            const resultsDiv = document.getElementById('perf-results');
+            resultsDiv.innerHTML = '';
+            
+            try {
+                addResult('perf-results', 'Running WebGPU performance test...', 'info');
+                
+                const perfCode = `
+import torch
+import time
+
+# Large matrix operations
+size = 512
+x = torch.randn([size, size])
+y = torch.randn([size, size])
+
+# Time matrix multiplication
+start_time = time.time()
+for i in range(10):
+    result = torch.matmul(x, y)
+end_time = time.time()
+
+avg_time = (end_time - start_time) / 10
+print(f"Average matmul time ({size}x{size}): {avg_time*1000:.2f}ms")
+print(f"Operations per second: {1/avg_time:.1f}")
+
+# Memory usage
+total_elements = size * size * 3  # x, y, result
+memory_mb = total_elements * 4 / 1024 / 1024  # float32 = 4 bytes
+print(f"Memory usage: {memory_mb:.1f}MB")
+
+f"Performance test completed - {avg_time*1000:.2f}ms per operation"
+                `;
+                
+                const startTime = performance.now();
+                const result = await greed.runtime.runPython(perfCode, { captureOutput: true });
+                const totalTime = performance.now() - startTime;
+                
+                addResult('perf-results', result, 'success');
+                addResult('perf-results', `Total test time: ${totalTime.toFixed(0)}ms`, 'info');
+                
+                const stats = greed.getStats();
+                addResult('perf-results', `System stats: ${JSON.stringify(stats, null, 2)}`, 'info');
+                
+            } catch (error) {
+                addResult('perf-results', `❌ Performance test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('init-btn').disabled = false;
+            // Auto-start initialization
+            setTimeout(() => {
+                initializeSystem();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

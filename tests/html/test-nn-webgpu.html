@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GreedJS Neural Network WebGPU Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+        .running { background: #fff3cd; }
+        pre { background: #f8f9fa; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>GreedJS Neural Network WebGPU Test</h1>
+    <div id="testResults"></div>
+    
+    <script src="dist/greed.js"></script>
+    <script>
+        async function runTests() {
+            const results = document.getElementById('testResults');
+            
+            function logTest(name, status, message, data = null) {
+                const div = document.createElement('div');
+                div.className = `test ${status}`;
+                div.innerHTML = `
+                    <h3>${name}</h3>
+                    <p>${message}</p>
+                    ${data ? `<pre>${data}</pre>` : ''}
+                `;
+                results.appendChild(div);
+            }
+            
+            try {
+                // Initialize GreedJS
+                logTest("Initialization", "running", "Initializing GreedJS...");
+                await greed.init();
+                logTest("Initialization", "pass", "GreedJS initialized successfully");
+                
+                // Test 1: Basic tensor creation
+                logTest("Tensor Creation", "running", "Testing basic tensor creation...");
+                const x = greed.torch.randn([2, 3]);
+                const y = greed.torch.randn([3, 4]);
+                logTest("Tensor Creation", "pass", "Tensors created successfully", 
+                    `x: ${x.shape} device: ${x.device}\ny: ${y.shape} device: ${y.device}`);
+                
+                // Test 2: nn.Linear layer
+                logTest("nn.Linear", "running", "Testing Linear layer with WebGPU...");
+                const linear = new greed.torch.nn.Linear(3, 4);
+                console.log("Linear layer created:", linear);
+                
+                // Test forward pass
+                const linear_input = greed.torch.randn([2, 3]);
+                console.log("Linear input:", linear_input);
+                const linear_output = linear(linear_input);
+                console.log("Linear output:", linear_output);
+                
+                logTest("nn.Linear", "pass", "Linear layer forward pass successful", 
+                    `Input: ${linear_input.shape}\nOutput: ${linear_output.shape}\nWeight: ${linear.weight.shape}\nBias: ${linear.bias ? linear.bias.shape : 'None'}`);
+                
+                // Test 3: nn.ReLU activation
+                logTest("nn.ReLU", "running", "Testing ReLU activation...");
+                const relu = new greed.torch.nn.ReLU();
+                const relu_input = greed.torch.tensor([[-1, 0, 1, 2, -2]]);
+                console.log("ReLU input:", relu_input);
+                const relu_output = relu(relu_input);
+                console.log("ReLU output:", relu_output);
+                
+                logTest("nn.ReLU", "pass", "ReLU activation successful", 
+                    `Input: ${JSON.stringify(Array.from(relu_input.data))}\nOutput: ${JSON.stringify(Array.from(relu_output.data))}`);
+                
+                // Test 4: nn.MSELoss
+                logTest("nn.MSELoss", "running", "Testing MSE Loss...");
+                const mse_loss = new greed.torch.nn.MSELoss();
+                const pred = greed.torch.tensor([[1.0, 2.0, 3.0]]);
+                const target = greed.torch.tensor([[1.5, 2.5, 3.5]]);
+                console.log("MSE pred:", pred);
+                console.log("MSE target:", target);
+                const loss = mse_loss(pred, target);
+                console.log("MSE loss:", loss);
+                
+                logTest("nn.MSELoss", "pass", "MSE Loss calculated successfully", 
+                    `Prediction: ${JSON.stringify(Array.from(pred.data))}\nTarget: ${JSON.stringify(Array.from(target.data))}\nLoss: ${loss.data}`);
+                
+                // Test 5: nn.Sequential - Simple neural network
+                logTest("nn.Sequential", "running", "Testing Sequential model...");
+                const model = new greed.torch.nn.Sequential(
+                    new greed.torch.nn.Linear(4, 8),
+                    new greed.torch.nn.ReLU(),
+                    new greed.torch.nn.Linear(8, 2)
+                );
+                
+                const model_input = greed.torch.randn([1, 4]);
+                console.log("Model input:", model_input);
+                const model_output = model(model_input);
+                console.log("Model output:", model_output);
+                
+                logTest("nn.Sequential", "pass", "Sequential model forward pass successful", 
+                    `Input: ${model_input.shape}\nOutput: ${model_output.shape}\nModel layers: Linear(4->8) -> ReLU -> Linear(8->2)`);
+                
+                // Test 6: End-to-end training step simulation
+                logTest("Training Step", "running", "Simulating a training step...");
+                const batch_input = greed.torch.randn([4, 4]);  // batch_size=4, input_dim=4
+                const batch_target = greed.torch.randn([4, 2]); // batch_size=4, output_dim=2
+                
+                // Forward pass
+                const batch_output = model(batch_input);
+                
+                // Loss calculation  
+                const batch_loss = mse_loss(batch_output, batch_target);
+                
+                logTest("Training Step", "pass", "Training step simulation successful", 
+                    `Batch input: ${batch_input.shape}\nBatch target: ${batch_target.shape}\nBatch output: ${batch_output.shape}\nBatch loss: ${batch_loss.data}`);
+                
+                // Test 7: WebGPU specific checks
+                logTest("WebGPU Verification", "running", "Checking WebGPU device usage...");
+                const webgpu_tensor = greed.torch.randn([10, 10]);
+                const webgpu_available = greed.torch.cuda.is_available();
+                
+                logTest("WebGPU Verification", "pass", "WebGPU checks completed", 
+                    `WebGPU available: ${webgpu_available}\nTensor device: ${webgpu_tensor.device}\nTensor dtype: ${webgpu_tensor.dtype}`);
+                
+                // Summary
+                logTest("All Tests", "pass", "✅ All neural network tests passed! The WebGPU implementation is working correctly.");
+                
+            } catch (error) {
+                console.error("Test error:", error);
+                logTest("Error", "fail", `Test failed: ${error.message}`, error.stack);
+            }
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html>

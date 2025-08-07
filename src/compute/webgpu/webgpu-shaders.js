@@ -630,6 +630,529 @@ export class WebGPUShaders {
         }
       `],
 
+      // ===== TENSOR CREATION OPERATIONS =====
+      ['rand', (opts) => `
+        @group(0) @binding(0) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(1) var<uniform> params: array<u32, 4>;
+
+        // Linear Congruential Generator for pseudo-random numbers
+        fn random_lcg(seed: u32) -> f32 {
+          let a = 1664525u;
+          let c = 1013904223u;
+          let m = 0xFFFFFFFFu;
+          let next_seed = (a * seed + c) % m;
+          return f32(next_seed) / f32(m);
+        }
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          let seed_base = params[1];
+          
+          if (index >= size) { return; }
+          
+          // Generate unique seed for each thread
+          let seed = seed_base + index * 747796405u + global_id.y * 2891336453u;
+          output[index] = random_lcg(seed);
+        }
+      `],
+
+      ['randn', (opts) => `
+        @group(0) @binding(0) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(1) var<uniform> params: array<u32, 4>;
+
+        // Box-Muller transform for normal distribution
+        fn random_normal(seed1: u32, seed2: u32) -> vec2<f32> {
+          let a = 1664525u;
+          let c = 1013904223u;
+          let m = 0xFFFFFFFFu;
+          
+          let next_seed1 = (a * seed1 + c) % m;
+          let next_seed2 = (a * seed2 + c) % m;
+          
+          let u1 = f32(next_seed1) / f32(m);
+          let u2 = f32(next_seed2) / f32(m);
+          
+          let r = sqrt(-2.0 * log(u1 + 1e-8));
+          let theta = 2.0 * 3.14159265359 * u2;
+          
+          return vec2<f32>(r * cos(theta), r * sin(theta));
+        }
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          let seed_base = params[1];
+          
+          if (index >= size) { return; }
+          
+          let seed1 = seed_base + index * 747796405u;
+          let seed2 = seed_base + index * 2891336453u + 1u;
+          
+          let normal_pair = random_normal(seed1, seed2);
+          output[index] = normal_pair.x;
+        }
+      `],
+
+      ['randint', (opts) => `
+        @group(0) @binding(0) var<storage, read_write> output: array<i32>;
+        @group(0) @binding(1) var<uniform> params: array<u32, 4>;
+
+        fn random_int(seed: u32, low: i32, high: i32) -> i32 {
+          let a = 1664525u;
+          let c = 1013904223u;
+          let m = 0xFFFFFFFFu;
+          let next_seed = (a * seed + c) % m;
+          let range = high - low;
+          return low + i32(next_seed % u32(range));
+        }
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          let seed_base = params[1];
+          let low = bitcast<i32>(params[2]);
+          let high = bitcast<i32>(params[3]);
+          
+          if (index >= size) { return; }
+          
+          let seed = seed_base + index * 747796405u;
+          output[index] = random_int(seed, low, high);
+        }
+      `],
+
+      ['zeros', (opts) => `
+        @group(0) @binding(0) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(1) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          output[index] = 0.0;
+        }
+      `],
+
+      ['ones', (opts) => `
+        @group(0) @binding(0) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(1) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          output[index] = 1.0;
+        }
+      `],
+
+      ['full', (opts) => `
+        @group(0) @binding(0) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(1) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          let fill_value = bitcast<f32>(params[1]);
+          if (index >= size) { return; }
+          output[index] = fill_value;
+        }
+      `],
+
+      ['empty', (opts) => `
+        @group(0) @binding(0) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(1) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          // Empty tensor - leave uninitialized (WebGPU will zero-initialize)
+          // In practice, this is similar to zeros but conceptually different
+        }
+      `],
+
+      // ===== TENSOR MANIPULATION OPERATIONS =====
+      ['cat', (opts) => `
+        @group(0) @binding(0) var<storage, read> input1: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read> input2: array<${opts.dataType}>;
+        @group(0) @binding(2) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(3) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size1 = params[0];
+          let size2 = params[1];
+          let dim = params[2];  // Concatenation dimension
+          let total_size = size1 + size2;
+          
+          if (index >= total_size) { return; }
+          
+          // Simple concatenation along flattened dimension for now
+          if (index < size1) {
+            output[index] = input1[index];
+          } else {
+            output[index] = input2[index - size1];
+          }
+        }
+      `],
+
+      ['stack', (opts) => `
+        @group(0) @binding(0) var<storage, read> input1: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read> input2: array<${opts.dataType}>;
+        @group(0) @binding(2) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(3) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let tensor_size = params[0];
+          let num_tensors = params[1];
+          let dim = params[2];  // Stack dimension
+          
+          if (index >= tensor_size * num_tensors) { return; }
+          
+          // Simple stacking - interleave elements
+          let tensor_idx = index / tensor_size;
+          let element_idx = index % tensor_size;
+          
+          if (tensor_idx == 0u) {
+            output[index] = input1[element_idx];
+          } else {
+            output[index] = input2[element_idx];
+          }
+        }
+      `],
+
+      ['chunk', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let input_size = params[0];
+          let num_chunks = params[1];
+          let chunk_idx = params[2];
+          let chunk_size = (input_size + num_chunks - 1u) / num_chunks;
+          
+          if (index >= chunk_size) { return; }
+          
+          let input_index = chunk_idx * chunk_size + index;
+          if (input_index < input_size) {
+            output[index] = input[input_index];
+          }
+        }
+      `],
+
+      ['split', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let split_size = params[0];
+          let split_idx = params[1];
+          let input_offset = split_idx * split_size;
+          
+          if (index >= split_size) { return; }
+          
+          output[index] = input[input_offset + index];
+        }
+      `],
+
+      // ===== MATHEMATICAL OPERATIONS - ENHANCED =====
+      ['max_reduce', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 4>;
+
+        var<workgroup> shared_data: array<f32, ${opts.workgroupSize[0]}>;
+
+        @compute @workgroup_size(${opts.workgroupSize[0]})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>,
+                @builtin(local_invocation_id) local_id: vec3<u32>,
+                @builtin(workgroup_id) workgroup_id: vec3<u32>) {
+          let size = params[0];
+          let local_idx = local_id.x;
+          let global_idx = global_id.x;
+          
+          var max_val = -3.4028235e+38; // -FLT_MAX
+          for (var i = global_idx; i < size; i = i + ${opts.workgroupSize[0]}u) {
+            max_val = max(max_val, input[i]);
+          }
+          shared_data[local_idx] = max_val;
+          
+          workgroupBarrier();
+          
+          for (var stride = ${opts.workgroupSize[0] / 2}u; stride > 0u; stride = stride >> 1u) {
+            if (local_idx < stride) {
+              shared_data[local_idx] = max(shared_data[local_idx], shared_data[local_idx + stride]);
+            }
+            workgroupBarrier();
+          }
+          
+          if (local_idx == 0u) {
+            output[workgroup_id.x] = shared_data[0];
+          }
+        }
+      `],
+
+      ['min_reduce', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 4>;
+
+        var<workgroup> shared_data: array<f32, ${opts.workgroupSize[0]}>;
+
+        @compute @workgroup_size(${opts.workgroupSize[0]})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>,
+                @builtin(local_invocation_id) local_id: vec3<u32>,
+                @builtin(workgroup_id) workgroup_id: vec3<u32>) {
+          let size = params[0];
+          let local_idx = local_id.x;
+          let global_idx = global_id.x;
+          
+          var min_val = 3.4028235e+38; // FLT_MAX
+          for (var i = global_idx; i < size; i = i + ${opts.workgroupSize[0]}u) {
+            min_val = min(min_val, input[i]);
+          }
+          shared_data[local_idx] = min_val;
+          
+          workgroupBarrier();
+          
+          for (var stride = ${opts.workgroupSize[0] / 2}u; stride > 0u; stride = stride >> 1u) {
+            if (local_idx < stride) {
+              shared_data[local_idx] = min(shared_data[local_idx], shared_data[local_idx + stride]);
+            }
+            workgroupBarrier();
+          }
+          
+          if (local_idx == 0u) {
+            output[workgroup_id.x] = shared_data[0];
+          }
+        }
+      `],
+
+      ['argmax', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<u32>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 4>;
+
+        var<workgroup> shared_values: array<f32, ${opts.workgroupSize[0]}>;
+        var<workgroup> shared_indices: array<u32, ${opts.workgroupSize[0]}>;
+
+        @compute @workgroup_size(${opts.workgroupSize[0]})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>,
+                @builtin(local_invocation_id) local_id: vec3<u32>,
+                @builtin(workgroup_id) workgroup_id: vec3<u32>) {
+          let size = params[0];
+          let local_idx = local_id.x;
+          let global_idx = global_id.x;
+          
+          var max_val = -3.4028235e+38; // -FLT_MAX
+          var max_idx = 0u;
+          
+          for (var i = global_idx; i < size; i = i + ${opts.workgroupSize[0]}u) {
+            if (input[i] > max_val) {
+              max_val = input[i];
+              max_idx = i;
+            }
+          }
+          
+          shared_values[local_idx] = max_val;
+          shared_indices[local_idx] = max_idx;
+          
+          workgroupBarrier();
+          
+          for (var stride = ${opts.workgroupSize[0] / 2}u; stride > 0u; stride = stride >> 1u) {
+            if (local_idx < stride) {
+              if (shared_values[local_idx + stride] > shared_values[local_idx]) {
+                shared_values[local_idx] = shared_values[local_idx + stride];
+                shared_indices[local_idx] = shared_indices[local_idx + stride];
+              }
+            }
+            workgroupBarrier();
+          }
+          
+          if (local_idx == 0u) {
+            output[workgroup_id.x] = shared_indices[0];
+          }
+        }
+      `],
+
+      ['argmin', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<u32>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 4>;
+
+        var<workgroup> shared_values: array<f32, ${opts.workgroupSize[0]}>;
+        var<workgroup> shared_indices: array<u32, ${opts.workgroupSize[0]}>;
+
+        @compute @workgroup_size(${opts.workgroupSize[0]})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>,
+                @builtin(local_invocation_id) local_id: vec3<u32>,
+                @builtin(workgroup_id) workgroup_id: vec3<u32>) {
+          let size = params[0];
+          let local_idx = local_id.x;
+          let global_idx = global_id.x;
+          
+          var min_val = 3.4028235e+38; // FLT_MAX
+          var min_idx = 0u;
+          
+          for (var i = global_idx; i < size; i = i + ${opts.workgroupSize[0]}u) {
+            if (input[i] < min_val) {
+              min_val = input[i];
+              min_idx = i;
+            }
+          }
+          
+          shared_values[local_idx] = min_val;
+          shared_indices[local_idx] = min_idx;
+          
+          workgroupBarrier();
+          
+          for (var stride = ${opts.workgroupSize[0] / 2}u; stride > 0u; stride = stride >> 1u) {
+            if (local_idx < stride) {
+              if (shared_values[local_idx + stride] < shared_values[local_idx]) {
+                shared_values[local_idx] = shared_values[local_idx + stride];
+                shared_indices[local_idx] = shared_indices[local_idx + stride];
+              }
+            }
+            workgroupBarrier();
+          }
+          
+          if (local_idx == 0u) {
+            output[workgroup_id.x] = shared_indices[0];
+          }
+        }
+      `],
+
+      // ===== COMPARISON OPERATIONS =====
+      ['eq', (opts) => `
+        @group(0) @binding(0) var<storage, read> input1: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read> input2: array<${opts.dataType}>;
+        @group(0) @binding(2) var<storage, read_write> output: array<u32>; // Boolean output as u32
+        @group(0) @binding(3) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          output[index] = u32(input1[index] == input2[index]);
+        }
+      `],
+
+      ['gt', (opts) => `
+        @group(0) @binding(0) var<storage, read> input1: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read> input2: array<${opts.dataType}>;
+        @group(0) @binding(2) var<storage, read_write> output: array<u32>;
+        @group(0) @binding(3) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          output[index] = u32(input1[index] > input2[index]);
+        }
+      `],
+
+      ['lt', (opts) => `
+        @group(0) @binding(0) var<storage, read> input1: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read> input2: array<${opts.dataType}>;
+        @group(0) @binding(2) var<storage, read_write> output: array<u32>;
+        @group(0) @binding(3) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          output[index] = u32(input1[index] < input2[index]);
+        }
+      `],
+
+      ['ge', (opts) => `
+        @group(0) @binding(0) var<storage, read> input1: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read> input2: array<${opts.dataType}>;
+        @group(0) @binding(2) var<storage, read_write> output: array<u32>;
+        @group(0) @binding(3) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          output[index] = u32(input1[index] >= input2[index]);
+        }
+      `],
+
+      ['le', (opts) => `
+        @group(0) @binding(0) var<storage, read> input1: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read> input2: array<${opts.dataType}>;
+        @group(0) @binding(2) var<storage, read_write> output: array<u32>;
+        @group(0) @binding(3) var<uniform> params: array<u32, 4>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          output[index] = u32(input1[index] <= input2[index]);
+        }
+      `],
+
+      ['equal', (opts) => `
+        @group(0) @binding(0) var<storage, read> input1: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read> input2: array<${opts.dataType}>;
+        @group(0) @binding(2) var<storage, read_write> output: array<u32>;
+        @group(0) @binding(3) var<uniform> params: array<u32, 4>;
+
+        var<workgroup> shared_result: u32;
+
+        @compute @workgroup_size(${opts.workgroupSize[0]})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>,
+                @builtin(local_invocation_id) local_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          let local_idx = local_id.x;
+          
+          var is_equal = 1u;
+          for (var i = index; i < size; i = i + ${opts.workgroupSize[0]}u) {
+            if (input1[i] != input2[i]) {
+              is_equal = 0u;
+              break;
+            }
+          }
+          
+          // Reduction to find if all elements are equal
+          workgroupBarrier();
+          if (local_idx == 0u) {
+            shared_result = is_equal;
+          }
+          workgroupBarrier();
+          
+          shared_result = shared_result & is_equal;
+          workgroupBarrier();
+          
+          if (local_idx == 0u) {
+            output[0] = shared_result;
+          }
+        }
+      `],
+
       // ===== LOSS FUNCTIONS =====
       ['cross_entropy', (opts) => `
         @group(0) @binding(0) var<storage, read> logits: array<${opts.dataType}>;
@@ -681,6 +1204,141 @@ export class WebGPUShaders {
           let diff = predictions[index] - targets[index];
           output[index] = diff * diff;
         }
+      `],
+
+      // ===== TENSOR SHAPE OPERATIONS (Pure WebGPU) =====
+      ['reshape', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 8>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          
+          // Simple copy operation - reshape is just a metadata change
+          output[index] = input[index];
+        }
+      `],
+
+      ['squeeze', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 8>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          
+          // Copy data while removing dimensions of size 1
+          output[index] = input[index];
+        }
+      `],
+
+      ['unsqueeze', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 8>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+          let index = global_id.x;
+          let size = params[0];
+          if (index >= size) { return; }
+          
+          // Copy data while adding dimensions of size 1
+          output[index] = input[index];
+        }
+      `],
+
+      // ===== STATISTICAL OPERATIONS (Pure WebGPU) =====
+      ['std', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 8>;
+
+        var<workgroup> local_data: array<${opts.dataType}, ${opts.workgroupSize[0]}>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>,
+                @builtin(local_invocation_id) local_id: vec3<u32>) {
+          let index = global_id.x;
+          let local_index = local_id.x;
+          let size = params[0];
+          let mean_val = bitcast<${opts.dataType}>(params[1]);
+          
+          // Load data into workgroup memory
+          if (index < size) {
+            let diff = input[index] - mean_val;
+            local_data[local_index] = diff * diff;
+          } else {
+            local_data[local_index] = 0.0;
+          }
+          
+          workgroupBarrier();
+          
+          // Parallel reduction for sum of squared differences
+          var stride = ${opts.workgroupSize[0]} / 2u;
+          while (stride > 0u) {
+            if (local_index < stride && (index + stride) < size) {
+              local_data[local_index] += local_data[local_index + stride];
+            }
+            workgroupBarrier();
+            stride = stride / 2u;
+          }
+          
+          // Write result (sqrt of variance)
+          if (local_index == 0u) {
+            let variance = local_data[0] / ${opts.dataType}(size - 1u);
+            output[global_id.x / ${opts.workgroupSize[0]}] = sqrt(variance);
+          }
+        }
+      `],
+
+      ['var', (opts) => `
+        @group(0) @binding(0) var<storage, read> input: array<${opts.dataType}>;
+        @group(0) @binding(1) var<storage, read_write> output: array<${opts.dataType}>;
+        @group(0) @binding(2) var<uniform> params: array<u32, 8>;
+
+        var<workgroup> local_data: array<${opts.dataType}, ${opts.workgroupSize[0]}>;
+
+        @compute @workgroup_size(${opts.workgroupSize.join(', ')})
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>,
+                @builtin(local_invocation_id) local_id: vec3<u32>) {
+          let index = global_id.x;
+          let local_index = local_id.x;
+          let size = params[0];
+          let mean_val = bitcast<${opts.dataType}>(params[1]);
+          
+          // Load data into workgroup memory
+          if (index < size) {
+            let diff = input[index] - mean_val;
+            local_data[local_index] = diff * diff;
+          } else {
+            local_data[local_index] = 0.0;
+          }
+          
+          workgroupBarrier();
+          
+          // Parallel reduction for sum of squared differences
+          var stride = ${opts.workgroupSize[0]} / 2u;
+          while (stride > 0u) {
+            if (local_index < stride && (index + stride) < size) {
+              local_data[local_index] += local_data[local_index + stride];
+            }
+            workgroupBarrier();
+            stride = stride / 2u;
+          }
+          
+          // Write variance result
+          if (local_index == 0u) {
+            output[global_id.x / ${opts.workgroupSize[0]}] = local_data[0] / ${opts.dataType}(size - 1u);
+          }
+        }
       `]
     ]);
   }
@@ -727,6 +1385,35 @@ export class WebGPUShaders {
       // Matrix operations
       matmul: { inputs: 2, outputs: 1, uniforms: 1 },
       bmm: { inputs: 2, outputs: 1, uniforms: 1 },
+      
+      // Tensor creation operations
+      rand: { inputs: 0, outputs: 1, uniforms: 1 },
+      randn: { inputs: 0, outputs: 1, uniforms: 1 },
+      randint: { inputs: 0, outputs: 1, uniforms: 1 },
+      zeros: { inputs: 0, outputs: 1, uniforms: 1 },
+      ones: { inputs: 0, outputs: 1, uniforms: 1 },
+      full: { inputs: 0, outputs: 1, uniforms: 1 },
+      empty: { inputs: 0, outputs: 1, uniforms: 1 },
+      
+      // Tensor manipulation operations
+      cat: { inputs: 2, outputs: 1, uniforms: 1 },
+      stack: { inputs: 2, outputs: 1, uniforms: 1 },
+      chunk: { inputs: 1, outputs: 1, uniforms: 1 },
+      split: { inputs: 1, outputs: 1, uniforms: 1 },
+      
+      // Mathematical operations
+      max_reduce: { inputs: 1, outputs: 1, uniforms: 1 },
+      min_reduce: { inputs: 1, outputs: 1, uniforms: 1 },
+      argmax: { inputs: 1, outputs: 1, uniforms: 1 },
+      argmin: { inputs: 1, outputs: 1, uniforms: 1 },
+      
+      // Comparison operations
+      eq: { inputs: 2, outputs: 1, uniforms: 1 },
+      gt: { inputs: 2, outputs: 1, uniforms: 1 },
+      lt: { inputs: 2, outputs: 1, uniforms: 1 },
+      ge: { inputs: 2, outputs: 1, uniforms: 1 },
+      le: { inputs: 2, outputs: 1, uniforms: 1 },
+      equal: { inputs: 2, outputs: 1, uniforms: 1 },
       
       // Unary operations
       relu: { inputs: 1, outputs: 1, uniforms: 1 },
@@ -794,6 +1481,85 @@ export class WebGPUShaders {
         // params: [size, negative_slope_bits, reserved, reserved]
         params[0] = tensors[0].length;
         params[1] = new Uint32Array(new Float32Array([options.negativeSlope || 0.01]).buffer)[0];
+        break;
+      
+      // Tensor creation operations
+      case 'rand':
+      case 'randn':
+        // params: [size, seed, reserved, reserved]
+        params[0] = options.size || options.shape?.reduce((a, b) => a * b, 1) || 1;
+        params[1] = options.seed || Math.floor(Math.random() * 0xFFFFFFFF);
+        break;
+      
+      case 'randint':
+        // params: [size, seed, low, high]
+        params[0] = options.size || options.shape?.reduce((a, b) => a * b, 1) || 1;
+        params[1] = options.seed || Math.floor(Math.random() * 0xFFFFFFFF);
+        params[2] = new Uint32Array(new Int32Array([options.low || 0]).buffer)[0];
+        params[3] = new Uint32Array(new Int32Array([options.high || 10]).buffer)[0];
+        break;
+      
+      case 'zeros':
+      case 'ones':
+      case 'empty':
+        // params: [size, reserved, reserved, reserved]
+        params[0] = options.size || options.shape?.reduce((a, b) => a * b, 1) || 1;
+        break;
+      
+      case 'full':
+        // params: [size, fill_value_bits, reserved, reserved]
+        params[0] = options.size || options.shape?.reduce((a, b) => a * b, 1) || 1;
+        params[1] = new Uint32Array(new Float32Array([options.fillValue || 0.0]).buffer)[0];
+        break;
+      
+      // Tensor manipulation operations
+      case 'cat':
+        // params: [size1, size2, dim, reserved]
+        params[0] = tensors[0].length;
+        params[1] = tensors[1].length;
+        params[2] = options.dim || 0;
+        break;
+      
+      case 'stack':
+        // params: [tensor_size, num_tensors, dim, reserved]
+        params[0] = tensors[0].length;
+        params[1] = tensors.length;
+        params[2] = options.dim || 0;
+        break;
+      
+      case 'chunk':
+        // params: [input_size, num_chunks, chunk_idx, reserved]
+        params[0] = tensors[0].length;
+        params[1] = options.chunks || 2;
+        params[2] = options.chunkIdx || 0;
+        break;
+      
+      case 'split':
+        // params: [split_size, split_idx, reserved, reserved]
+        params[0] = options.splitSize || Math.floor(tensors[0].length / (options.splits || 2));
+        params[1] = options.splitIdx || 0;
+        break;
+      
+      // Mathematical operations
+      case 'max_reduce':
+      case 'min_reduce':
+      case 'argmax':
+      case 'argmin':
+        // params: [size, dim, keepdim, reserved]
+        params[0] = tensors[0].length;
+        params[1] = options.dim || 0;
+        params[2] = options.keepdim ? 1 : 0;
+        break;
+      
+      // Comparison operations
+      case 'eq':
+      case 'gt':
+      case 'lt':
+      case 'ge':
+      case 'le':
+      case 'equal':
+        // params: [size, reserved, reserved, reserved]
+        params[0] = Math.max(tensors[0].length, tensors[1].length);
         break;
       
       default:

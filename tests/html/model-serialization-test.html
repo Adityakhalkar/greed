@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Model Serialization Test - Phase 5.2</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+        .running { background: #fff3cd; }
+        .serialization { background: #e3f2fd; border-color: #1976d2; }
+        .pytorch { background: #f3e5f5; border-color: #7b1fa2; }
+        pre { background: #f8f9fa; padding: 10px; margin: 10px 0; font-size: 12px; }
+        .json-preview { max-height: 300px; overflow-y: auto; }
+        .model-info { background: #e8f5e8; padding: 10px; margin: 10px 0; border-left: 4px solid #4caf50; }
+    </style>
+</head>
+<body>
+    <h1>Model Serialization Test - Phase 5.2</h1>
+    <p><strong>Purpose:</strong> Test PyTorch-compatible model save/load functionality with WebGPU acceleration</p>
+    <div id="testResults"></div>
+    
+    <script src="dist/greed.js"></script>
+    <script>
+        let savedModel = null;
+        let originalWeights = {};
+        
+        async function runModelSerializationTest() {
+            const results = document.getElementById('testResults');
+            
+            function logTest(name, status, message, data = null, type = null) {
+                const div = document.createElement('div');
+                div.className = `test ${status} ${type || ''}`;
+                div.innerHTML = `
+                    <h3>${name}</h3>
+                    <p>${message}</p>
+                    ${data ? `<pre class="json-preview">${data}</pre>` : ''}
+                `;
+                results.appendChild(div);
+            }
+            
+            try {
+                // Initialize GreedJS
+                logTest("Initialization", "running", "Initializing GreedJS with model serialization...");
+                await greed.init();
+                logTest("Initialization", "pass", "GreedJS initialized with serialization support");
+                
+                // Test 1: Create a simple model
+                logTest("Model Creation", "running", "Creating neural network for serialization test...");
+                
+                const model = new greed.torch.nn.Sequential(
+                    new greed.torch.nn.Linear(4, 8),   
+                    new greed.torch.nn.ReLU(),         
+                    new greed.torch.nn.Linear(8, 3),   
+                    new greed.torch.nn.ReLU(),         
+                    new greed.torch.nn.Linear(3, 1)    
+                );
+                
+                const paramCount = model.parameters().length;
+                const totalParams = model.parameters().reduce((sum, p) => sum + (p.data ? p.data.length : 0), 0);
+                
+                logTest("Model Creation", "pass", "Neural network created for serialization test",
+                    `Architecture: Linear(4->8) -> ReLU -> Linear(8->3) -> ReLU -> Linear(3->1)\\nParameter tensors: ${paramCount}\\nTotal parameters: ${totalParams}`, "pytorch");
+                
+                // Test 2: Extract and display state dictionary
+                logTest("State Dict Extraction", "running", "Extracting model state dictionary...");
+                
+                const stateDict = model.state_dict();
+                const stateDictKeys = Object.keys(stateDict);
+                
+                // Store original weights for comparison
+                originalWeights = {};
+                for (const key of stateDictKeys) {
+                    const param = stateDict[key];
+                    originalWeights[key] = param.data ? Array.from(param.data) : param;
+                }
+                
+                const stateDictInfo = stateDictKeys.map(key => {
+                    const param = stateDict[key];
+                    return `${key}: shape=${param.shape}, dtype=${param.dtype}, device=${param.device}`;
+                }).join('\\n');
+                
+                logTest("State Dict Extraction", "pass", "State dictionary extracted successfully",
+                    `Keys: ${stateDictKeys.length}\\n${stateDictInfo}`, "serialization");
+                
+                // Test 3: Save model using torch.save
+                logTest("Model Save", "running", "Testing torch.save functionality...");
+                
+                try {
+                    const savedData = await greed.torch.save(model);
+                    savedModel = JSON.parse(savedData);
+                    
+                    const metadata = savedModel.metadata;
+                    const serializedInfo = `Version: ${savedModel.version}\\nPyTorch Compatible: ${savedModel.pytorch_compatible}\\nModel Class: ${metadata.model_class}\\nTotal Parameters: ${metadata.total_parameters}\\nDevice: ${metadata.device_type}\\nArchitecture Layers: ${metadata.architecture.total_layers}`;
+                    
+                    logTest("Model Save", "pass", "Model saved successfully using torch.save",
+                        serializedInfo, "serialization");
+                        
+                } catch (saveError) {
+                    logTest("Model Save", "fail", `torch.save failed: ${saveError.message}`, saveError.stack);
+                    return;
+                }
+                
+                // Test 4: Modify model to verify loading works
+                logTest("Model Modification", "running", "Modifying model weights to test loading...");
+                
+                // Change some weights
+                const firstParam = model.parameters()[0];
+                if (firstParam.data) {
+                    for (let i = 0; i < Math.min(5, firstParam.data.length); i++) {
+                        firstParam.data[i] = 999.0; // Set to obvious different value
+                    }
+                }
+                
+                const modifiedFirstValues = Array.from(firstParam.data.slice(0, 5));
+                logTest("Model Modification", "pass", "Model weights modified for testing",
+                    `Modified first 5 weights to: ${modifiedFirstValues}`, "serialization");
+                
+                // Test 5: Load model using torch.load
+                logTest("Model Load", "running", "Testing torch.load functionality...");
+                
+                try {
+                    const loadedData = await greed.torch.load(JSON.stringify(savedModel), model);
+                    
+                    const loadInfo = `State Dict Keys: ${Object.keys(loadedData.state_dict).length}\\nVersion: ${loadedData.version}\\nTimestamp: ${new Date(loadedData.timestamp).toLocaleString()}`;
+                    
+                    logTest("Model Load", "pass", "Model loaded successfully using torch.load",
+                        loadInfo, "serialization");
+                        
+                } catch (loadError) {
+                    logTest("Model Load", "fail", `torch.load failed: ${loadError.message}`, loadError.stack);
+                    return;
+                }
+                
+                // Test 6: Verify weights were restored
+                logTest("Weight Verification", "running", "Verifying weights were correctly restored...");
+                
+                let allWeightsCorrect = true;
+                let mismatchDetails = [];
+                
+                const newStateDict = model.state_dict();
+                for (const key of stateDictKeys) {
+                    const originalData = originalWeights[key];
+                    const restoredData = newStateDict[key].data ? Array.from(newStateDict[key].data) : newStateDict[key];
+                    
+                    if (Array.isArray(originalData) && Array.isArray(restoredData)) {
+                        for (let i = 0; i < Math.min(originalData.length, restoredData.length); i++) {
+                            if (Math.abs(originalData[i] - restoredData[i]) > 1e-6) {
+                                allWeightsCorrect = false;
+                                mismatchDetails.push(`${key}[${i}]: original=${originalData[i]}, restored=${restoredData[i]}`);
+                                if (mismatchDetails.length >= 5) break; // Limit output
+                            }
+                        }
+                        if (originalData.length !== restoredData.length) {
+                            allWeightsCorrect = false;
+                            mismatchDetails.push(`${key}: length mismatch (${originalData.length} vs ${restoredData.length})`);
+                        }
+                    }
+                }
+                
+                if (allWeightsCorrect) {
+                    logTest("Weight Verification", "pass", "All weights restored correctly",
+                        `Verified ${stateDictKeys.length} parameter tensors`, "serialization");
+                } else {
+                    logTest("Weight Verification", "fail", "Weight restoration issues detected",
+                        mismatchDetails.slice(0, 5).join('\\n'), "serialization");
+                }
+                
+                // Test 7: Test state_dict and load_state_dict methods directly
+                logTest("Direct State Dict Methods", "running", "Testing model.state_dict() and model.load_state_dict()...");
+                
+                try {
+                    // Create new model
+                    const newModel = new greed.torch.nn.Sequential(
+                        new greed.torch.nn.Linear(4, 8),   
+                        new greed.torch.nn.ReLU(),         
+                        new greed.torch.nn.Linear(8, 3),   
+                        new greed.torch.nn.ReLU(),         
+                        new greed.torch.nn.Linear(3, 1)    
+                    );
+                    
+                    // Get original state dict
+                    const originalStateDict = model.state_dict();
+                    
+                    // Load into new model
+                    const loadResult = newModel.load_state_dict(originalStateDict);
+                    
+                    logTest("Direct State Dict Methods", "pass", "Direct state_dict methods working correctly",
+                        `Missing keys: ${loadResult.missing_keys.length}\\nUnexpected keys: ${loadResult.unexpected_keys.length}`, "pytorch");
+                        
+                } catch (directError) {
+                    logTest("Direct State Dict Methods", "fail", `Direct methods failed: ${directError.message}`, directError.stack);
+                }
+                
+                // Test 8: JSON serialization preview
+                logTest("Serialization Format", "running", "Analyzing serialization format...");
+                
+                const formatInfo = `Format: JSON\\nSize: ${JSON.stringify(savedModel).length} bytes\\nCompression: ${savedModel.compression || 'None'}\\nIncludes Metadata: ${!!savedModel.metadata}`;
+                
+                // Show sample of serialized data
+                const sampleData = {
+                    version: savedModel.version,
+                    pytorch_compatible: savedModel.pytorch_compatible,
+                    metadata: savedModel.metadata,
+                    sample_parameters: Object.fromEntries(
+                        Object.entries(savedModel.model_state_dict).slice(0, 2).map(([key, value]) => [
+                            key, 
+                            {
+                                shape: value.shape,
+                                dtype: value.dtype,
+                                device: value.device,
+                                data_preview: value.data.slice(0, 5) + "..."
+                            }
+                        ])
+                    )
+                };
+                
+                logTest("Serialization Format", "pass", "Serialization format analysis complete",
+                    `${formatInfo}\\n\\nSample Data:\\n${JSON.stringify(sampleData, null, 2)}`, "serialization");
+                
+                // Final Assessment
+                if (allWeightsCorrect) {
+                    logTest("Phase 5.2 Final Assessment", "pass", 
+                        "🎉 PHASE 5.2 SUCCESSFULLY COMPLETED!", 
+                        `✅ PyTorch-compatible torch.save() and torch.load()\\n✅ Model state_dict() and load_state_dict()\\n✅ Complete weight preservation\\n✅ Metadata and versioning support\\n✅ JSON serialization format\\n\\n🚀 Ready for production model persistence!`, "pytorch");
+                } else {
+                    logTest("Phase 5.2 Assessment", "fail", 
+                        "⚠️ PHASE 5.2 PARTIAL SUCCESS", 
+                        "Model serialization implemented but weight restoration needs improvement", "pytorch");
+                }
+                
+            } catch (error) {
+                console.error("Model serialization test error:", error);
+                logTest("Error", "fail", `Model serialization test failed: ${error.message}`, error.stack);
+            }
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', runModelSerializationTest);
+    </script>
+</body>
+</html>

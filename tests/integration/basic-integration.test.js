@@ -47,7 +47,7 @@ describe('Greed.js v2.0 Basic Integration', () => {
   test('Package.json is updated for v2', () => {
     const packageJson = require('../../package.json');
     
-    expect(packageJson.version).toBe('2.0.1');
+    expect(packageJson.version).toBe('2.0.2');
     expect(packageJson.module).toBe('src/core/greed-v2.js');
     expect(packageJson.scripts['build']).toBeDefined();
     expect(packageJson.scripts['test:integration']).toBeDefined();

@@ -43,9 +43,131 @@ export class TensorBridge {
   }
 
   /**
-   * Execute WebGPU operation on tensor
+   * Execute WebGPU tensor creation operation
    */
-  async executeOperation(tensorId, operation, otherTensorId = null, options = {}) {
+  async executeCreationOperation(operation, options = {}) {
+    try {
+      const { shape, size, device = 'webgpu', dtype = 'float32' } = options;
+      
+      if (!size && !shape) {
+        throw new Error('Either size or shape must be provided for tensor creation');
+      }
+      
+      const tensorSize = size || shape.reduce((a, b) => a * b, 1);
+      const tensorShape = shape || [size];
+      
+      // Execute WebGPU creation operation
+      const result = await this.computeEngine.execute(operation, [], {
+        outputSize: tensorSize,
+        dataType: dtype === 'int64' ? 'i32' : 'f32',
+        ...options
+      });
+      
+      // Create WebGPU tensor with result
+      const tensor = new WebGPUTensor(result, {
+        shape: tensorShape,
+        dtype: dtype,
+        device: device,
+        computeEngine: this.computeEngine
+      });
+      
+      const tensorId = `webgpu_tensor_${this.nextTensorId++}`;
+      this.tensorRegistry.set(tensorId, tensor);
+      
+      // Return just the tensor ID for Python integration
+      return tensorId;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Execute WebGPU binary operation between two tensors
+   */
+  async executeBinaryOperation(tensor1Id, tensor2Id, operation, options = {}) {
+    const tensor1 = this.tensorRegistry.get(tensor1Id);
+    const tensor2 = this.tensorRegistry.get(tensor2Id);
+    
+    if (!tensor1 || !tensor2) {
+      throw new Error(`Tensor not found: ${!tensor1 ? tensor1Id : tensor2Id}`);
+    }
+
+    try {
+      // Execute WebGPU binary operation
+      const result = await this.computeEngine.execute(operation, [tensor1, tensor2], options);
+      
+      // Create result tensor
+      const resultTensor = new WebGPUTensor(result, {
+        shape: tensor1.shape, // Simplified - actual shape calculation needed
+        dtype: tensor1.dtype,
+        device: tensor1.device,
+        computeEngine: this.computeEngine
+      });
+      
+      const tensorId = `webgpu_tensor_${this.nextTensorId++}`;
+      this.tensorRegistry.set(tensorId, resultTensor);
+      
+      return {
+        success: true,
+        id: tensorId,
+        data: Array.from(result),
+        shape: resultTensor.shape,
+        dtype: resultTensor.dtype
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Execute WebGPU unary operation on single tensor
+   */
+  async executeUnaryOperation(tensorId, operation, options = {}) {
+    const tensor = this.tensorRegistry.get(tensorId);
+    if (!tensor) {
+      throw new Error(`Tensor ${tensorId} not found`);
+    }
+
+    try {
+      // Execute WebGPU unary operation
+      const result = await this.computeEngine.execute(operation, [tensor], options);
+      
+      // Create result tensor
+      const resultTensor = new WebGPUTensor(result, {
+        shape: tensor.shape, // Simplified - actual shape calculation needed
+        dtype: tensor.dtype,
+        device: tensor.device,
+        computeEngine: this.computeEngine
+      });
+      
+      const tensorId = `webgpu_tensor_${this.nextTensorId++}`;
+      this.tensorRegistry.set(tensorId, resultTensor);
+      
+      return {
+        success: true,
+        id: tensorId,
+        data: Array.from(result),
+        shape: resultTensor.shape,
+        dtype: resultTensor.dtype
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Execute WebGPU operation on tensor (Python-compatible interface)
+   */
+  async executeOperation(operation, tensorId, otherTensorId = null, options = {}) {
     const tensor = this.tensorRegistry.get(tensorId);
     if (!tensor) {
       throw new Error(`Tensor ${tensorId} not found`);
@@ -98,11 +220,36 @@ export class TensorBridge {
         case 'transpose':
           result = await tensor.transpose(options.dim0, options.dim1);
           break;
+        case 'squeeze':
+          result = await tensor.squeeze(options.dim);
+          break;
+        case 'unsqueeze':
+          result = await tensor.unsqueeze(options.dim);
+          break;
+        case 'reshape':
+          result = await tensor.reshape(options.shape);
+          break;
+        case 'std':
+          result = await tensor.std(options.dim, options.keepdim, options.unbiased);
+          break;
+        case 'var':
+          result = await tensor.var(options.dim, options.keepdim, options.unbiased);
+          break;
+        case 'linear':
+          // Neural network linear layer operation
+          const biasId = options.bias_id;
+          const bias = biasId ? this.tensorRegistry.get(biasId) : null;
+          result = await this.computeEngine.executeLinear(tensor, otherTensor, bias, options);
+          break;
+        case 'cross_entropy':
+          // Cross entropy loss computation
+          result = await this.computeEngine.executeCrossEntropy(tensor, otherTensor, options);
+          break;
         default:
           throw new Error(`Unsupported operation: ${operation}`);
       }
 
-      // Register result tensor
+      // Register result tensor and return just the ID for Python
       const resultInfo = this.createWebGPUTensor(
         result.data, 
         result.shape, 
@@ -110,19 +257,26 @@ export class TensorBridge {
         result.device
       );
 
-      return {
-        success: true,
-        result: resultInfo,
-        data: Array.from(result.data),
-        shape: result.shape,
-        dtype: result.dtype
-      };
+      // Return just the tensor ID for Python WebGPU integration
+      return resultInfo.id;
     } catch (error) {
       return {
         success: false,
         error: error.message
       };
     }
+  }
+
+  /**
+   * Get tensor data for Python integration
+   */
+  getTensorData(tensorId) {
+    const tensor = this.tensorRegistry.get(tensorId);
+    if (!tensor) {
+      throw new Error(`Tensor ${tensorId} not found`);
+    }
+
+    return Array.from(tensor.data);
   }
 
   /**
@@ -139,6 +293,16 @@ export class TensorBridge {
       shape: tensor.shape,
       dtype: tensor.dtype
     };
+  }
+
+  /**
+   * Execute backward pass for autograd (placeholder)
+   */
+  executeBackward(tensorId, gradientId) {
+    // Placeholder for autograd backward pass
+    // In full implementation, this would compute gradients
+    console.log(`Executing backward pass for tensor ${tensorId} with gradient ${gradientId}`);
+    return true;
   }
 
   /**

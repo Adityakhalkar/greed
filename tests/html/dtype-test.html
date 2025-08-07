@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dtype Fix Test</title>
+    <script src="http://localhost:8080/greed.js"></script>
+</head>
+<body>
+    <h1>PyTorch Dtype Compatibility Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        async function testDtypeCompatibility() {
+            const output = document.getElementById('output');
+            
+            try {
+                // Initialize Greed
+                const greed = new Greed({
+                    enableConsoleLogging: true,
+                    maxWorkers: 1
+                });
+                
+                await greed.initialize();
+                output.innerHTML += '<p>✅ Greed initialized successfully</p>';
+                
+                // Test the exact scenario from the bug report
+                const result = await greed.run(`
+import numpy as np
+import torch
+
+# Test the exact scenario from the bug report
+a = np.array([1, 2, 3])
+b = torch.tensor(a)
+
+print("NumPy array:", repr(a))
+print("NumPy dtype:", a.dtype)
+print("Tensor:", repr(b))
+print("Tensor dtype:", b.dtype)
+
+# Return the tensor representation
+str(b)
+                `);
+                
+                output.innerHTML += '<h2>Test Results:</h2>';
+                output.innerHTML += '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                
+                // Test various dtype scenarios
+                const dtypeTest = await greed.run(`
+import numpy as np
+import torch
+
+test_results = []
+
+# Integer list
+t1 = torch.tensor([1, 2, 3])
+test_results.append(("int_list", str(t1)))
+
+# Float list
+t2 = torch.tensor([1.0, 2.0, 3.0])
+test_results.append(("float_list", str(t2)))
+
+# NumPy int32
+a_int32 = np.array([1, 2, 3], dtype=np.int32)
+t3 = torch.tensor(a_int32)
+test_results.append(("numpy_int32", str(t3)))
+
+# NumPy int64
+a_int64 = np.array([1, 2, 3], dtype=np.int64)
+t4 = torch.tensor(a_int64)
+test_results.append(("numpy_int64", str(t4)))
+
+# Multi-dimensional
+t5 = torch.tensor([[1, 2], [3, 4]])
+test_results.append(("multi_dim", str(t5)))
+
+test_results
+                `);
+                
+                output.innerHTML += '<h2>Comprehensive Dtype Tests:</h2>';
+                output.innerHTML += '<pre>' + JSON.stringify(dtypeTest, null, 2) + '</pre>';
+                
+            } catch (error) {
+                output.innerHTML += '<p>❌ Error: ' + error.message + '</p>';
+                console.error(error);
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testDtypeCompatibility);
+    </script>
+</body>
+</html>

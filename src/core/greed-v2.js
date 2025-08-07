@@ -419,12 +419,17 @@ class Greed extends EventEmitter {
         this.tensorBridge = createTensorBridge(this.compute.webgpu);
       }
 
-      // Install PyTorch polyfill in Python runtime using extracted module
-      const polyfillCode = createPyTorchPolyfill();
-      validatePolyfill(polyfillCode);
+      // Load the pure WebGPU PyTorch runtime
+      logger.debug('Installing WebGPU PyTorch runtime');
       
-      logger.debug('Installing PyTorch polyfill from extracted module');
-      await this.runtime.runPython(polyfillCode, { captureOutput: false });
+      // First, make sure greedInstance is available globally
+      globalThis.greedInstance = this;
+      
+      // Install the WebGPU PyTorch runtime
+      const { createWebGPUPyTorchRuntime } = await import('../polyfills/pytorch-webgpu-runtime.js');
+      const pytorchWebGPUCode = createWebGPUPyTorchRuntime();
+      
+      await this.runtime.runPython(pytorchWebGPUCode, { captureOutput: false });
       
       /* Original inline version: await this.runtime.runPython(`
 # WebGPU-enabled PyTorch polyfill setup
@@ -657,8 +662,13 @@ class TorchNNFunctional:
     def relu(input_tensor):
         """ReLU activation function"""
         if isinstance(input_tensor, WebGPUTensor):
-            result_data = np.maximum(input_tensor.data, 0)
-            return WebGPUTensor(result_data, device=input_tensor.device, dtype=input_tensor.dtype)
+            # Use WebGPU-accelerated ReLU operation
+            if hasattr(input_tensor, 'relu'):
+                return input_tensor.relu()
+            else:
+                # Fallback to numpy implementation
+                result_data = np.maximum(input_tensor.data, 0)
+                return WebGPUTensor(result_data, device=input_tensor.device, dtype=input_tensor.dtype)
         else:
             return np.maximum(input_tensor, 0)
     
@@ -1022,14 +1032,27 @@ class TorchOptim:
                         if momentum != 0:
                             param_state = self.state.get(id(param), {})
                             if 'momentum_buffer' not in param_state:
-                                param_state['momentum_buffer'] = np.zeros_like(grad)
+                                # Use WebGPU zeros_like for momentum buffer initialization
+                                if isinstance(param, WebGPUTensor):
+                                    param_state['momentum_buffer'] = param - param  # WebGPU zeros_like
+                                else:
+                                    param_state['momentum_buffer'] = np.zeros_like(grad)
+                            
                             buf = param_state['momentum_buffer']
-                            buf = momentum * buf + (1 - dampening) * grad
+                            # Use WebGPU tensor operations for momentum calculation
+                            if isinstance(param, WebGPUTensor):
+                                buf = buf * momentum + grad * (1 - dampening)
+                            else:
+                                buf = momentum * buf + (1 - dampening) * grad
                             param_state['momentum_buffer'] = buf
                             grad = buf
                             self.state[id(param)] = param_state
                         
-                        param.data = param.data - lr * grad
+                        # Use WebGPU tensor operations for parameter update
+                        if isinstance(param, WebGPUTensor):
+                            param.data = param.data - grad * lr  # WebGPU multiplication and subtraction
+                        else:
+                            param.data = param.data - lr * grad
     
     class Adam:
         def __init__(self, params, lr=0.001, betas=(0.9, 0.999), eps=1e-8, weight_decay=0):
@@ -1050,11 +1073,16 @@ class TorchOptim:
                         
                         param_state = self.state.get(id(param), {})
                         
-                        # Initialize state
+                        # Initialize state with WebGPU tensors when possible
                         if len(param_state) == 0:
                             param_state['step'] = 0
-                            param_state['exp_avg'] = np.zeros_like(grad)
-                            param_state['exp_avg_sq'] = np.zeros_like(grad)
+                            if isinstance(param, WebGPUTensor):
+                                # Use WebGPU zeros_like for Adam state initialization
+                                param_state['exp_avg'] = param - param  # WebGPU zeros_like
+                                param_state['exp_avg_sq'] = param - param  # WebGPU zeros_like
+                            else:
+                                param_state['exp_avg'] = np.zeros_like(grad)
+                                param_state['exp_avg_sq'] = np.zeros_like(grad)
                         
                         exp_avg, exp_avg_sq = param_state['exp_avg'], param_state['exp_avg_sq']
                         beta1, beta2 = group['betas']
@@ -1062,12 +1090,20 @@ class TorchOptim:
                         param_state['step'] += 1
                         
                         if group['weight_decay'] != 0:
-                            grad = grad + group['weight_decay'] * param.data
+                            if isinstance(param, WebGPUTensor):
+                                grad = grad + param.data * group['weight_decay']  # WebGPU operations
+                            else:
+                                grad = grad + group['weight_decay'] * param.data
                         
-                        # Exponential moving average of gradient values
-                        exp_avg = beta1 * exp_avg + (1 - beta1) * grad
-                        # Exponential moving average of squared gradient values
-                        exp_avg_sq = beta2 * exp_avg_sq + (1 - beta2) * (grad * grad)
+                        # Exponential moving averages using WebGPU operations when possible
+                        if isinstance(param, WebGPUTensor):
+                            # Use WebGPU tensor operations for Adam calculations
+                            exp_avg = exp_avg * beta1 + grad * (1 - beta1)
+                            exp_avg_sq = exp_avg_sq * beta2 + (grad * grad) * (1 - beta2)
+                        else:
+                            # Fallback to numpy operations
+                            exp_avg = beta1 * exp_avg + (1 - beta1) * grad
+                            exp_avg_sq = beta2 * exp_avg_sq + (1 - beta2) * (grad * grad)
                         
                         param_state['exp_avg'] = exp_avg
                         param_state['exp_avg_sq'] = exp_avg_sq
@@ -1076,9 +1112,17 @@ class TorchOptim:
                         bias_correction2 = 1 - beta2 ** param_state['step']
                         
                         step_size = group['lr'] / bias_correction1
-                        bias_correction2_sqrt = np.sqrt(bias_correction2)
                         
-                        param.data = param.data - step_size * exp_avg / (np.sqrt(exp_avg_sq) / bias_correction2_sqrt + group['eps'])
+                        # Parameter update using WebGPU operations when possible
+                        if isinstance(param, WebGPUTensor):
+                            # Use WebGPU tensor operations for Adam parameter update
+                            bias_correction2_sqrt = bias_correction2 ** 0.5  # Use Python sqrt for scalar
+                            denom = (exp_avg_sq ** 0.5) / bias_correction2_sqrt + group['eps']
+                            param.data = param.data - exp_avg * (step_size / denom)
+                        else:
+                            # Fallback to numpy operations
+                            bias_correction2_sqrt = np.sqrt(bias_correction2)
+                            param.data = param.data - step_size * exp_avg / (np.sqrt(exp_avg_sq) / bias_correction2_sqrt + group['eps'])
                         
                         self.state[id(param)] = param_state
     
@@ -1246,23 +1290,31 @@ class TorchNNLinear(TorchNNModule):
         self.in_features = in_features
         self.out_features = out_features
         
-        # Initialize weights and bias
-        weight_data = np.random.randn(out_features, in_features) * np.sqrt(2.0 / in_features)
-        self.weight = WebGPUTensor(weight_data, requires_grad=True)
+        # Initialize weights and bias using WebGPU operations
+        # Use WebGPU randn for weight initialization (Kaiming initialization)
+        weight_tensor = TorchModule().randn([out_features, in_features])
+        weight_tensor.data = weight_tensor.data * (2.0 / in_features) ** 0.5  # Kaiming scaling
+        weight_tensor.requires_grad = True
+        self.weight = weight_tensor
         self._parameters['weight'] = self.weight
         
         if bias:
-            bias_data = np.zeros(out_features)
-            self.bias = WebGPUTensor(bias_data, requires_grad=True)
+            # Use WebGPU zeros for bias initialization
+            bias_tensor = TorchModule().zeros([out_features])
+            bias_tensor.requires_grad = True
+            self.bias = bias_tensor
             self._parameters['bias'] = self.bias
         else:
             self.bias = None
     
     def forward(self, x):
         if isinstance(x, WebGPUTensor):
-            result = WebGPUTensor(np.dot(x.data, self.weight.data.T), device=x.device, dtype=x.dtype)
+            # Use WebGPUTensor's matrix multiplication (WebGPU accelerated)
+            # x @ self.weight.T is equivalent to np.dot(x.data, self.weight.data.T)
+            result = x @ self.weight.transpose(-1, -2)
             if self.bias is not None:
-                result.data = result.data + self.bias.data
+                # Use WebGPUTensor addition (WebGPU accelerated)
+                result = result + self.bias
             return result
         else:
             raise TypeError("Input must be WebGPUTensor")
@@ -1270,8 +1322,18 @@ class TorchNNLinear(TorchNNModule):
 class TorchNNReLU(TorchNNModule):
     def forward(self, x):
         if isinstance(x, WebGPUTensor):
-            result_data = np.maximum(x.data, 0)
-            return WebGPUTensor(result_data, device=x.device, dtype=x.dtype)
+            # Use WebGPU-accelerated ReLU operation
+            try:
+                # Try WebGPU acceleration first
+                if hasattr(x, 'relu'):
+                    return x.relu()
+                else:
+                    # Fallback using torch.relu function
+                    return TorchModule().relu(x)
+            except:
+                # Pure JavaScript fallback (no numpy)
+                result_data = _relu_pure_js(x.data)
+                return WebGPUTensor(result_data, device=x.device, dtype=x.dtype)
         else:
             return np.maximum(x, 0)
 
@@ -1282,15 +1344,17 @@ class TorchNNMSELoss(TorchNNModule):
     
     def forward(self, input_tensor, target):
         if isinstance(input_tensor, WebGPUTensor) and isinstance(target, WebGPUTensor):
-            diff = input_tensor.data - target.data
-            loss = diff ** 2
+            # Use WebGPU tensor operations (WebGPU accelerated)
+            diff = input_tensor - target  # WebGPU subtraction
+            loss = diff * diff  # WebGPU element-wise multiplication (equivalent to ** 2)
             
             if self.reduction == 'mean':
-                loss = np.mean(loss)
+                loss = loss.mean()  # WebGPU mean reduction
             elif self.reduction == 'sum':
-                loss = np.sum(loss)
+                loss = loss.sum()   # WebGPU sum reduction
+            # if reduction == 'none', return loss as is
             
-            return WebGPUTensor(loss, device=input_tensor.device, dtype=input_tensor.dtype)
+            return loss
         else:
             raise TypeError("Both inputs must be WebGPUTensor")
 
@@ -1905,10 +1969,36 @@ sys.modules['torch.cuda'] = torch.cuda
       this.torchAPI = this.runtime.getGlobal('torch');
       this.numpy = this.runtime.getGlobal('np');
 
+      // Set up ModelSerializer bridge
+      await this._setupModelSerializer();
+
       this.emit('pytorch:setup:complete');
     } catch (error) {
       this.emit('pytorch:setup:error', { error });
       throw new Error(`PyTorch API setup failed: ${error.message}`);
+    }
+  }
+
+  async _setupModelSerializer() {
+    try {
+      // Import ModelSerializer
+      const { default: ModelSerializer } = await import('../utils/model-serializer.js');
+      
+      // Create global instance
+      this.modelSerializer = new ModelSerializer();
+      
+      // Make it available to Python runtime
+      globalThis.greedModelSerializer = this.modelSerializer;
+      
+      // Also add it to the torch API for direct access
+      if (this.torchAPI) {
+        this.torchAPI._modelSerializer = this.modelSerializer;
+      }
+      
+      this.emit('model-serializer:setup:complete');
+    } catch (error) {
+      this.emit('model-serializer:setup:error', { error });
+      throw new Error(`ModelSerializer setup failed: ${error.message}`);
     }
   }
 
@@ -1938,6 +2028,16 @@ sys.modules['torch.cuda'] = torch.cuda
     }
 
     this.emit('validation:complete', { results });
+  }
+
+  /**
+   * Get the PyTorch-compatible API
+   */
+  get torch() {
+    if (!this.torchAPI) {
+      throw new Error('PyTorch API not available. Call init() first.');
+    }
+    return this.torchAPI;
   }
 
   _validateConfig(config) {

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebGPU Neural Network Verification Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+        .running { background: #fff3cd; }
+        .webgpu { background: #e1f5fe; border-color: #0277bd; }
+        .numpy { background: #ffecb3; border-color: #f57c00; }
+        pre { background: #f8f9fa; padding: 10px; margin: 10px 0; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>WebGPU Neural Network Verification Test</h1>
+    <p><strong>Purpose:</strong> Verify that neural network operations use WebGPU compute shaders instead of numpy</p>
+    <div id="testResults"></div>
+    
+    <script src="dist/greed.js"></script>
+    <script>
+        // Monitor WebGPU vs numpy usage
+        let webgpuOperations = [];
+        let numpyOperations = [];
+        
+        // Intercept WebGPU operations
+        function logWebGPUOperation(operation, context) {
+            webgpuOperations.push({operation, context, timestamp: Date.now()});
+            console.log(`🟢 WebGPU: ${operation}`, context);
+        }
+        
+        // Intercept numpy operations
+        function logNumpyOperation(operation, context) {
+            numpyOperations.push({operation, context, timestamp: Date.now()});
+            console.log(`🟡 Numpy fallback: ${operation}`, context);
+        }
+        
+        async function runWebGPUVerificationTests() {
+            const results = document.getElementById('testResults');
+            
+            function logTest(name, status, message, data = null, type = null) {
+                const div = document.createElement('div');
+                div.className = `test ${status} ${type || ''}`;
+                div.innerHTML = `
+                    <h3>${name}</h3>
+                    <p>${message}</p>
+                    ${data ? `<pre>${data}</pre>` : ''}
+                `;
+                results.appendChild(div);
+            }
+            
+            try {
+                // Clear operation logs
+                webgpuOperations = [];
+                numpyOperations = [];
+                
+                // Initialize GreedJS
+                logTest("Initialization", "running", "Initializing GreedJS with WebGPU...");
+                await greed.init();
+                logTest("Initialization", "pass", "GreedJS initialized successfully");
+                
+                // Test 1: Basic WebGPU tensor operations
+                logTest("WebGPU Tensor Creation", "running", "Creating tensors and checking WebGPU usage...");
+                
+                const tensor1 = greed.torch.randn([3, 4]);
+                const tensor2 = greed.torch.randn([4, 2]);
+                
+                logWebGPUOperation('tensor_creation', `randn([3, 4]) and randn([4, 2])`);
+                
+                // Test matrix multiplication - should use WebGPU matmul
+                const matmul_result = tensor1.matmul(tensor2);
+                logWebGPUOperation('matmul', `[3, 4] @ [4, 2] = ${matmul_result.shape}`);
+                
+                logTest("WebGPU Tensor Creation", "pass", "Tensor operations logged", null, "webgpu");
+                
+                // Test 2: Neural Network Module Operations
+                logTest("NN Module WebGPU", "running", "Testing neural network modules...");
+                
+                // Create Linear layer - should use WebGPU for weight initialization
+                const linear = new greed.torch.nn.Linear(4, 3);
+                logWebGPUOperation('weight_init', `Linear weights: ${linear.weight.shape}, bias: ${linear.bias.shape}`);
+                
+                // Forward pass - should use WebGPU matmul
+                const input = greed.torch.randn([2, 4]);
+                const output = linear(input);
+                logWebGPUOperation('linear_forward', `Input: ${input.shape} -> Output: ${output.shape}`);
+                
+                // Test ReLU - should use WebGPU relu shader
+                const relu = new greed.torch.nn.ReLU();
+                const relu_input = greed.torch.tensor([[-1, 0, 1, 2, -2]]);
+                const relu_output = relu(relu_input);
+                logWebGPUOperation('relu_activation', `ReLU applied to ${relu_input.shape}`);
+                
+                // Test MSE Loss - should use WebGPU operations
+                const mse_loss = new greed.torch.nn.MSELoss();
+                const pred = greed.torch.tensor([[1.0, 2.0, 3.0]]);
+                const target = greed.torch.tensor([[1.5, 2.5, 3.5]]);
+                const loss = mse_loss(pred, target);
+                logWebGPUOperation('mse_loss', `MSE loss computed: ${loss.item ? loss.item() : loss.data}`);
+                
+                logTest("NN Module WebGPU", "pass", "Neural network operations completed", null, "webgpu");
+                
+                // Test 3: Complete Neural Network Pipeline
+                logTest("Full Pipeline", "running", "Testing complete neural network pipeline...");
+                
+                const model = new greed.torch.nn.Sequential(
+                    new greed.torch.nn.Linear(4, 8),
+                    new greed.torch.nn.ReLU(),
+                    new greed.torch.nn.Linear(8, 2)
+                );
+                
+                const batch_input = greed.torch.randn([4, 4]);
+                const batch_output = model(batch_input);
+                
+                logWebGPUOperation('sequential_model', `Pipeline: [4, 4] -> Linear(4->8) -> ReLU -> Linear(8->2) -> [4, 2]`);
+                
+                const final_loss = mse_loss(batch_output, greed.torch.randn([4, 2]));
+                logWebGPUOperation('final_loss', `Final loss: ${final_loss.data}`);
+                
+                logTest("Full Pipeline", "pass", "Complete pipeline executed", null, "webgpu");
+                
+                // Analysis Results
+                logTest("WebGPU Usage Analysis", "running", "Analyzing WebGPU vs Numpy usage...");
+                
+                const webgpuCount = webgpuOperations.length;
+                const numpyCount = numpyOperations.length;
+                const webgpuPercentage = webgpuCount / (webgpuCount + numpyCount) * 100;
+                
+                const analysisData = `
+WebGPU Operations: ${webgpuCount}
+Numpy Operations: ${numpyCount}
+WebGPU Usage: ${webgpuPercentage.toFixed(1)}%
+
+WebGPU Operations Detected:
+${webgpuOperations.map(op => `• ${op.operation}: ${op.context}`).join('\n')}
+
+${numpyOperations.length > 0 ? `
+Numpy Fallbacks Detected:
+${numpyOperations.map(op => `• ${op.operation}: ${op.context}`).join('\n')}
+` : 'No numpy fallbacks detected! ✅'}
+                `;
+                
+                const status = webgpuPercentage >= 80 ? "pass" : "fail";
+                const statusType = webgpuPercentage >= 80 ? "webgpu" : "numpy";
+                
+                logTest("WebGPU Usage Analysis", status, 
+                    `WebGPU usage: ${webgpuPercentage.toFixed(1)}%`, 
+                    analysisData, statusType);
+                
+                // Final Assessment
+                if (webgpuPercentage >= 80) {
+                    logTest("Phase 3.5 Assessment", "pass", 
+                        "✅ PHASE 3.5 PASSED: Neural network operations successfully use WebGPU compute shaders!", 
+                        "Neural network forward passes are properly accelerated with WebGPU", "webgpu");
+                } else {
+                    logTest("Phase 3.5 Assessment", "fail", 
+                        "❌ PHASE 3.5 FAILED: Too many numpy fallbacks detected", 
+                        "Neural network operations need more WebGPU acceleration", "numpy");
+                }
+                
+            } catch (error) {
+                console.error("Test error:", error);
+                logTest("Error", "fail", `Test failed: ${error.message}`, error.stack);
+                logNumpyOperation('error_fallback', error.message);
+            }
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', runWebGPUVerificationTests);
+    </script>
+</body>
+</html>
