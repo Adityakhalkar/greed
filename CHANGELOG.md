@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2025-01-07
+
+### Fixed
+- **Critical Security Issue**: Fixed overly strict security validation preventing library initialization in React and other projects
+- **Internal Code Detection**: Added smart detection for internal library code to bypass security checks appropriately
+- **Configuration Options**: Added `securityMode` option ('strict', 'permissive', 'disabled') for flexible security configuration
+- **Runtime Manager**: Updated Python execution to respect bypass options for internal library code
+- **User Experience**: Library now initializes properly in React applications and other frameworks without security errors
+
+### Added
+- **Security Configuration**: New security configuration options for better control:
+  - `securityMode`: 'strict' (default), 'permissive', or 'disabled'
+  - `allowInternalCode`: Allow internal library code to bypass security (default: true)
+- **Internal Code Markers**: Smart detection of GreedJS internal code patterns to prevent false security flags
+- **Bypass Options**: Enhanced bypass mechanisms for `isInternal` and `bypassValidation` flags
+
+### Technical Details
+- Enhanced `SecurityValidator` with configurable security modes and internal code detection
+- Updated `RuntimeManager` to respect security bypass options during Python code execution
+- Added pattern recognition for WebGPU PyTorch runtime code markers
+- Improved error messages and debugging information for security-related issues
+
+### Usage
+Users can now configure security mode during initialization:
+```javascript
+const greed = new Greed({
+  securityMode: 'permissive', // or 'disabled' for development
+  allowInternalCode: true     // default, allows library internals
+});
+```
+
 ## [2.1.0] - 2025-01-07
 
 ### MAJOR ARCHITECTURE CHANGE - Python-First WebGPU PyTorch

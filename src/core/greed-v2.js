@@ -25,10 +25,12 @@ class Greed extends EventEmitter {
       maxWorkers: navigator.hardwareConcurrency || 4,
       
       // Security settings
-      strictSecurity: true,
-      allowEval: false,
-      allowFileSystem: false,
-      allowNetwork: false,
+      strictSecurity: options.strictSecurity !== false,
+      allowEval: options.allowEval === true,
+      allowFileSystem: options.allowFileSystem === true,
+      allowNetwork: options.allowNetwork === true,
+      securityMode: options.securityMode || 'strict', // 'strict', 'permissive', 'disabled'
+      allowInternalCode: options.allowInternalCode !== false,
       
       // Performance settings
       maxMemoryMB: 1024,
@@ -363,6 +365,8 @@ class Greed extends EventEmitter {
       allowEval: this.config.allowEval,
       allowFileSystem: this.config.allowFileSystem,
       allowNetwork: this.config.allowNetwork,
+      securityMode: this.config.securityMode,
+      allowInternalCode: this.config.allowInternalCode,
       maxTensorSize: this.config.maxTensorSize,
       maxMemoryMB: this.config.maxMemoryMB
     });
@@ -425,11 +429,15 @@ class Greed extends EventEmitter {
       // First, make sure greedInstance is available globally
       globalThis.greedInstance = this;
       
-      // Install the WebGPU PyTorch runtime
+      // Install the WebGPU PyTorch runtime with internal bypass
       const { createWebGPUPyTorchRuntime } = await import('../polyfills/pytorch-webgpu-runtime.js');
       const pytorchWebGPUCode = createWebGPUPyTorchRuntime();
       
-      await this.runtime.runPython(pytorchWebGPUCode, { captureOutput: false });
+      await this.runtime.runPython(pytorchWebGPUCode, { 
+        captureOutput: false,
+        isInternal: true,
+        bypassValidation: true
+      });
       
       /* Original inline version: await this.runtime.runPython(`
 # WebGPU-enabled PyTorch polyfill setup

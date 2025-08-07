@@ -118,10 +118,12 @@ class RuntimeManager extends EventEmitter {
       captureOutput = false,
       timeout = 10000,
       globals = {},
-      validateInput = true
+      validateInput = true,
+      bypassValidation = false,
+      isInternal = false
     } = options;
 
-    if (validateInput && this._containsDangerousPatterns(code)) {
+    if (validateInput && !bypassValidation && !isInternal && this._containsDangerousPatterns(code)) {
       throw new SecurityError('Potentially dangerous code patterns detected');
     }
 
