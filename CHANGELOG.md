@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.4] - 2025-01-07
+
+### Fixed
+- **Critical PyTorch Module Import Error**: Fixed `NameError: name 'torch' is not defined` in both CPU and WebGPU modes
+- **Python Module Registration**: Added proper `torch` module namespace and registration in Python's `sys.modules`
+- **PyTorch API Compatibility**: Created complete `TorchModule` class with all PyTorch functions and submodules
+- **Import Statement Support**: Users can now use `import torch` properly in Python code
+
+### Technical Details
+- Created `TorchModule` class containing all PyTorch functions (tensor, zeros, ones, nn, etc.)
+- Added proper module registration: `sys.modules['torch'] = torch`, `sys.modules['torch.nn'] = torch.nn`
+- Exposed torch in global namespace: `globals()['torch'] = torch`
+- Enhanced `__all__` exports to include torch module
+- Aligned WebGPU runtime with CPU runtime module registration patterns
+
+### API Enhancement
+```python
+# Now works properly:
+import torch
+
+# All these now work:
+x = torch.tensor([1, 2, 3])
+y = torch.zeros(2, 2)
+model = torch.nn.Linear(10, 5)
+result = torch.matmul(x, y)
+```
+
 ## [2.1.3] - 2025-01-07
 
 ### Fixed

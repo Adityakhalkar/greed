@@ -10,6 +10,7 @@ export function createWebGPUPyTorchRuntime() {
 # Backend: All operations run on WebGPU compute shaders
 
 import js
+import sys
 from typing import List, Optional, Union, Tuple
 import array
 
@@ -619,8 +620,58 @@ class cuda_module:
 
 cuda = cuda_module()
 
-# Export torch module interface
+# ===== TORCH MODULE CREATION =====
+
+# Create torch module namespace for PyTorch compatibility
+class TorchModule:
+    """Main torch module containing all PyTorch functionality"""
+    
+    # Tensor creation functions
+    tensor = tensor
+    zeros = zeros
+    ones = ones
+    randn = randn
+    ones_like = ones_like
+    zeros_like = zeros_like
+    
+    # Functional operations
+    add = add
+    matmul = matmul
+    relu = relu
+    
+    # Neural network module
+    nn = nn
+    
+    # Device utilities
+    cuda = cuda
+    is_available = is_available
+    
+    # Tensor types
+    Tensor = WebGPUTensor
+    
+    # Additional PyTorch compatibility functions
+    def sum(self, input, dim=None, keepdim=False):
+        """Global sum function"""
+        return input.sum(dim=dim, keepdim=keepdim)
+    
+    def mean(self, input, dim=None, keepdim=False):
+        """Global mean function"""
+        return input.mean(dim=dim, keepdim=keepdim)
+
+# Create the torch instance
+torch = TorchModule()
+
+# Register torch module properly in Python module system
+sys.modules['torch'] = torch
+sys.modules['torch.nn'] = torch.nn
+sys.modules['torch.cuda'] = torch.cuda
+
+# Also make torch available in globals for direct access
+globals()['torch'] = torch
+
+# Export torch module interface  
 __all__ = [
+    'torch',  # Main torch module
     'tensor', 'zeros', 'ones', 'randn', 'ones_like', 'zeros_like',
     'relu', 'matmul', 'add',
     'nn', 'cuda', 'is_available',
