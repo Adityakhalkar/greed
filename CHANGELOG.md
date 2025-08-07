@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.6] - 2025-01-07
+
+### Fixed
+- **Critical TensorBridge AttributeError**: Fixed `AttributeError: tensorBridge` when accessing WebGPU tensor operations
+- **JavaScript Bridge Validation**: Added comprehensive error checking for greed instance and tensor bridge availability
+- **Initialization Order Issues**: Enhanced error messages to guide users when GreedJS not properly initialized
+- **Tensor Creation Failures**: Improved error handling for WebGPU tensor bridge access patterns
+
+### Technical Details
+- Added `_check_tensor_bridge()` helper function for consistent error checking
+- Enhanced error messages with specific troubleshooting guidance
+- Improved detection of missing greed instance or tensor bridge components
+- Added graceful error handling for WebGPU initialization edge cases
+
+### Enhanced Error Handling
+```python
+# Before (caused AttributeError):
+result = js.greedInstance.tensorBridge.createWebGPUTensor(...)
+
+# After (with proper checking):
+tensor_bridge = _check_tensor_bridge()  # Validates availability
+result = tensor_bridge.createWebGPUTensor(...)
+```
+
+### Initialization Guidance
+- Clear error messages when `greed.initialize()` not completed
+- Specific guidance for WebGPU support and tensor bridge setup
+- Better debugging information for JavaScript ↔ Python bridge issues
+
 ## [2.1.5] - 2025-01-07
 
 ### Fixed

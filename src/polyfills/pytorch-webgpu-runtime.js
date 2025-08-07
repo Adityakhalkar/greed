@@ -40,6 +40,16 @@ class WebGPUDevice:
 cuda = WebGPUDevice('webgpu')  # For PyTorch compatibility (cuda -> webgpu)
 webgpu = WebGPUDevice('webgpu')
 
+def _check_tensor_bridge():
+    """Check if tensor bridge is available and raise informative error if not"""
+    if not hasattr(js, 'greedInstance'):
+        raise RuntimeError("GreedJS instance not available. Make sure greed.initialize() completed successfully.")
+    
+    if not hasattr(js.greedInstance, 'tensorBridge'):
+        raise RuntimeError("WebGPU tensor bridge not available. Check if WebGPU is supported and greed initialized properly.")
+    
+    return js.greedInstance.tensorBridge
+
 class WebGPUTensor:
     """Pure WebGPU PyTorch-compatible tensor implementation"""
     
@@ -72,15 +82,21 @@ class WebGPUTensor:
         # Flatten the data for WebGPU
         flat_data = self._flatten_data(data)
         
-        # Call JavaScript tensor bridge to create WebGPU tensor
-        result = js.greedInstance.tensorBridge.createWebGPUTensor(
-            flat_data,
-            self.shape, 
-            self.dtype,
-            str(self.device)
-        )
-        
-        return result.id
+        try:
+            # Get tensor bridge with proper error checking
+            tensor_bridge = _check_tensor_bridge()
+            
+            # Call JavaScript tensor bridge to create WebGPU tensor
+            result = tensor_bridge.createWebGPUTensor(
+                flat_data,
+                self.shape, 
+                self.dtype,
+                str(self.device)
+            )
+            
+            return result.id
+        except Exception as e:
+            raise RuntimeError(f"Failed to create WebGPU tensor: {e}. Check WebGPU support and tensor bridge initialization.")
     
     def _flatten_data(self, data):
         """Recursively flatten nested lists/tuples to flat array"""
@@ -139,7 +155,8 @@ class WebGPUTensor:
         other_tensor = other if isinstance(other, WebGPUTensor) else WebGPUTensor(other)
         
         # Call WebGPU add shader through JavaScript
-        result_id = js.greedInstance.tensorBridge.executeOperation(
+        tensor_bridge = _check_tensor_bridge()
+        result_id = tensor_bridge.executeOperation(
             'add',
             self._webgpu_id,
             other_tensor._webgpu_id,
@@ -384,7 +401,8 @@ def zeros(size, dtype='float32', device=None, requires_grad=False):
     """Create zero tensor using WebGPU zeros shader"""
     shape = size if isinstance(size, (list, tuple)) else [size]
     
-    result_id = js.greedInstance.tensorBridge.executeCreationOperation(
+    tensor_bridge = _check_tensor_bridge()
+    result_id = tensor_bridge.executeCreationOperation(
         'zeros',
         {'shape': shape, 'dtype': dtype, 'device': str(device or webgpu)}
     )
