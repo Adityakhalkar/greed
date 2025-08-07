@@ -4,7 +4,7 @@
 
 **Python-first PyTorch with WebGPU acceleration in browsers - Write Python, run on GPU**
 
-[![Version](https://img.shields.io/badge/version-2.1.6-blue.svg)](https://github.com/adityakhalkar/greed)
+[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/adityakhalkar/greed)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/adityakhalkar/greed)
 [![WebGPU](https://img.shields.io/badge/WebGPU-accelerated-orange.svg)](https://gpuweb.github.io/gpuweb/)
 [![PyTorch Compatible](https://img.shields.io/badge/PyTorch-compatible-red.svg)](https://pytorch.org/)
@@ -33,7 +33,7 @@ npm install greed.js
 
 ```html
 <!-- CDN -->
-<script src="https://unpkg.com/greed.js@2.1.6/dist/greed.min.js"></script>
+<script src="https://unpkg.com/greed.js@2.2.0/dist/greed.min.js"></script>
 ```
 
 ### Basic Python Usage
@@ -381,7 +381,7 @@ print("Training completed!")
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="https://unpkg.com/greed.js@2.1.6/dist/greed.min.js"></script>
+    <script src="https://unpkg.com/greed.js@2.2.0/dist/greed.min.js"></script>
 </head>
 <body>
     <input type="file" id="upload" accept="image/*">

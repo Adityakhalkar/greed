@@ -13,15 +13,28 @@ export class WebGPUTensor {
     this.grad = null;
     this.grad_fn = null;
     
-    // Shape and data handling
+    // Shape and data handling - enhanced for Python/Pyodide compatibility
     if (Array.isArray(data) || ArrayBuffer.isView(data)) {
       this.data = this._processInputData(data);
       this.shape = options.shape || this._inferShape(data);
     } else if (data instanceof ArrayBuffer) {
       this.data = new Float32Array(data);
       this.shape = options.shape || [this.data.length];
+    } else if (data && typeof data === 'object' && typeof data.length !== 'undefined') {
+      // Handle Pyodide/Python lists and array-like objects
+      try {
+        const arrayData = Array.from(data); // Convert to proper JavaScript array
+        this.data = this._processInputData(arrayData);
+        this.shape = options.shape || this._inferShape(arrayData);
+      } catch (conversionError) {
+        throw new Error(`Invalid tensor data: cannot convert to array. Got ${typeof data}, error: ${conversionError.message}`);
+      }
+    } else if (typeof data === 'number') {
+      // Handle scalar values
+      this.data = new Float32Array([data]);
+      this.shape = options.shape || [1];
     } else {
-      throw new Error('Invalid tensor data type');
+      throw new Error(`Invalid tensor data type. Expected Array, TypedArray, ArrayBuffer, array-like object, or number. Got: ${typeof data} (${data})`);
     }
     
     // Derived properties

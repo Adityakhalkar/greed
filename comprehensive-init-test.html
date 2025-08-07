@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GreedJS Comprehensive Initialization Test</title>
+    <script src="./dist/greed.js"></script>
+    <style>
+        body { font-family: monospace; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        .test-result { margin: 5px 0; padding: 5px; }
+        .loading { color: #666; }
+    </style>
+</head>
+<body>
+    <h1>GreedJS Comprehensive Initialization & API Test Suite</h1>
+    <div id="test-results"></div>
+
+    <script>
+        class GreedJSTestSuite {
+            constructor() {
+                this.results = [];
+                this.greed = null;
+                this.resultsDiv = document.getElementById('test-results');
+            }
+
+            log(message, type = 'info') {
+                const result = { message, type, timestamp: new Date().toISOString() };
+                this.results.push(result);
+                this.displayResult(result);
+                console.log(`[${type.toUpperCase()}] ${message}`);
+            }
+
+            displayResult(result) {
+                const div = document.createElement('div');
+                div.className = `test-result ${result.type}`;
+                div.innerHTML = `[${result.timestamp.split('T')[1].split('.')[0]}] ${result.message}`;
+                this.resultsDiv.appendChild(div);
+                this.resultsDiv.scrollTop = this.resultsDiv.scrollHeight;
+            }
+
+            async runAllTests() {
+                this.log("🚀 Starting GreedJS Comprehensive Test Suite", "info");
+                
+                try {
+                    // Phase 1: Basic JavaScript Environment Tests
+                    await this.testJavaScriptEnvironment();
+                    
+                    // Phase 2: GreedJS Class and Basic Initialization
+                    await this.testGreedJSClass();
+                    
+                    // Phase 3: WebGPU and Browser Support
+                    await this.testWebGPUSupport();
+                    
+                    // Phase 4: Full Initialization Sequence
+                    await this.testFullInitialization();
+                    
+                    // Phase 5: Python Runtime Tests
+                    await this.testPythonRuntime();
+                    
+                    // Phase 6: PyTorch Import and Module Tests
+                    await this.testPyTorchImports();
+                    
+                    // Phase 7: Tensor Creation and Operations
+                    await this.testTensorOperations();
+                    
+                    // Phase 8: Neural Network Components
+                    await this.testNeuralNetworks();
+                    
+                    // Phase 9: Complete API Surface Test
+                    await this.testCompleteAPI();
+                    
+                    this.log("✅ All tests completed! Check results above.", "success");
+                    
+                } catch (error) {
+                    this.log(`💥 Test suite failed: ${error.message}`, "error");
+                    console.error("Test suite error:", error);
+                }
+            }
+
+            async testJavaScriptEnvironment() {
+                this.log("📋 Phase 1: JavaScript Environment Tests", "info");
+                
+                // Test basic JavaScript features
+                try {
+                    // Test ES6 features
+                    const testArrow = () => "arrow function works";
+                    this.log(`✅ ES6 Arrow Functions: ${testArrow()}`, "success");
+                    
+                    // Test async/await
+                    await new Promise(resolve => setTimeout(resolve, 1));
+                    this.log("✅ Async/Await Support: Working", "success");
+                    
+                    // Test WebAssembly support
+                    if (typeof WebAssembly !== 'undefined') {
+                        this.log("✅ WebAssembly: Supported", "success");
+                    } else {
+                        this.log("⚠️ WebAssembly: Not supported", "warning");
+                    }
+                    
+                    // Test SharedArrayBuffer (for threading)
+                    if (typeof SharedArrayBuffer !== 'undefined') {
+                        this.log("✅ SharedArrayBuffer: Supported", "success");
+                    } else {
+                        this.log("⚠️ SharedArrayBuffer: Not supported (limits threading)", "warning");
+                    }
+                    
+                } catch (error) {
+                    this.log(`❌ JavaScript Environment Error: ${error.message}`, "error");
+                    throw error;
+                }
+            }
+
+            async testGreedJSClass() {
+                this.log("📋 Phase 2: GreedJS Class Tests", "info");
+                
+                try {
+                    // Test GreedJS class availability
+                    if (typeof Greed === 'undefined') {
+                        throw new Error("Greed class not found - check script loading");
+                    }
+                    this.log("✅ Greed Class: Available", "success");
+                    
+                    // Test constructor
+                    this.greed = new Greed();
+                    this.log("✅ Greed Constructor: Working", "success");
+                    
+                    // Test basic properties
+                    this.log(`✅ Greed Instance Type: ${typeof this.greed}`, "success");
+                    this.log(`✅ Greed Methods: ${Object.getOwnPropertyNames(Object.getPrototypeOf(this.greed)).join(', ')}`, "info");
+                    
+                } catch (error) {
+                    this.log(`❌ GreedJS Class Error: ${error.message}`, "error");
+                    throw error;
+                }
+            }
+
+            async testWebGPUSupport() {
+                this.log("📋 Phase 3: WebGPU Support Tests", "info");
+                
+                try {
+                    // Check WebGPU availability
+                    if (navigator.gpu) {
+                        this.log("✅ WebGPU API: Available", "success");
+                        
+                        try {
+                            const adapter = await navigator.gpu.requestAdapter();
+                            if (adapter) {
+                                this.log("✅ WebGPU Adapter: Available", "success");
+                                this.log(`✅ GPU Info: ${JSON.stringify({
+                                    vendor: adapter.info?.vendor || 'unknown',
+                                    device: adapter.info?.device || 'unknown'
+                                })}`, "info");
+                            } else {
+                                this.log("⚠️ WebGPU Adapter: Not available (will fallback to CPU)", "warning");
+                            }
+                        } catch (adapterError) {
+                            this.log(`⚠️ WebGPU Adapter Error: ${adapterError.message}`, "warning");
+                        }
+                    } else {
+                        this.log("⚠️ WebGPU API: Not available (will fallback to CPU)", "warning");
+                    }
+                    
+                } catch (error) {
+                    this.log(`❌ WebGPU Test Error: ${error.message}`, "error");
+                    // Don't throw - WebGPU is optional
+                }
+            }
+
+            async testFullInitialization() {
+                this.log("📋 Phase 4: Full Initialization Tests", "info");
+                
+                try {
+                    this.log("🔄 Starting greed.initialize()...", "loading");
+                    
+                    // Test initialization with timeout
+                    const initPromise = this.greed.initialize();
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error("Initialization timeout after 30s")), 30000)
+                    );
+                    
+                    await Promise.race([initPromise, timeoutPromise]);
+                    this.log("✅ Greed Initialization: Completed", "success");
+                    
+                    // Test greed instance properties after init
+                    if (this.greed.isInitialized) {
+                        this.log("✅ Initialization Flag: True", "success");
+                    } else {
+                        this.log("⚠️ Initialization Flag: Not set properly", "warning");
+                    }
+                    
+                } catch (error) {
+                    this.log(`❌ Initialization Error: ${error.message}`, "error");
+                    this.log(`❌ Error Stack: ${error.stack}`, "error");
+                    throw error;
+                }
+            }
+
+            async testPythonRuntime() {
+                this.log("📋 Phase 5: Python Runtime Tests", "info");
+                
+                try {
+                    // Test basic Python execution
+                    this.log("🔄 Testing basic Python execution...", "loading");
+                    const basicPython = await this.greed.runPython("2 + 2");
+                    this.log(`✅ Basic Python: ${basicPython}`, "success");
+                    
+                    // Test Python imports
+                    this.log("🔄 Testing Python imports...", "loading");
+                    await this.greed.runPython("import sys; print(f'Python version: {sys.version}')");
+                    this.log("✅ Python Imports: Working", "success");
+                    
+                    // Test variable persistence
+                    await this.greed.runPython("test_var = 'hello world'");
+                    const varResult = await this.greed.runPython("test_var");
+                    this.log(`✅ Variable Persistence: ${varResult}`, "success");
+                    
+                } catch (error) {
+                    this.log(`❌ Python Runtime Error: ${error.message}`, "error");
+                    throw error;
+                }
+            }
+
+            async testPyTorchImports() {
+                this.log("📋 Phase 6: PyTorch Import Tests", "info");
+                
+                try {
+                    // Test torch import
+                    this.log("🔄 Testing 'import torch'...", "loading");
+                    await this.greed.runPython("import torch");
+                    this.log("✅ PyTorch Import: Success", "success");
+                    
+                    // Test torch attributes
+                    const torchAttrs = await this.greed.runPython("list(dir(torch))[:10]");  // First 10 attributes
+                    this.log(`✅ Torch Attributes Sample: ${JSON.stringify(torchAttrs)}`, "success");
+                    
+                    // Test submodules
+                    await this.greed.runPython("import torch.nn as nn");
+                    this.log("✅ torch.nn Import: Success", "success");
+                    
+                    // Test CUDA module
+                    const cudaAvailable = await this.greed.runPython("torch.cuda.is_available()");
+                    this.log(`✅ CUDA Available: ${cudaAvailable}`, "success");
+                    
+                } catch (error) {
+                    this.log(`❌ PyTorch Import Error: ${error.message}`, "error");
+                    throw error;
+                }
+            }
+
+            async testTensorOperations() {
+                this.log("📋 Phase 7: Tensor Operations Tests", "info");
+                
+                try {
+                    // Test basic tensor creation
+                    this.log("🔄 Testing tensor creation...", "loading");
+                    const tensorResult = await this.greed.runPython(`
+x = torch.tensor([1, 2, 3, 4])
+x.shape
+                    `);
+                    this.log(`✅ Tensor Creation: ${JSON.stringify(tensorResult)}`, "success");
+                    
+                    // Test tensor operations
+                    this.log("🔄 Testing tensor operations...", "loading");
+                    const opResult = await this.greed.runPython(`
+y = torch.tensor([2, 3, 4, 5])
+result = x + y
+result.numpy().tolist()
+                    `);
+                    this.log(`✅ Tensor Addition: ${JSON.stringify(opResult)}`, "success");
+                    
+                    // Test matrix operations
+                    this.log("🔄 Testing matrix operations...", "loading");
+                    const matResult = await this.greed.runPython(`
+a = torch.tensor([[1, 2], [3, 4]], dtype=torch.float32)
+b = torch.tensor([[2], [3]], dtype=torch.float32)
+c = torch.matmul(a, b)
+c.numpy().tolist()
+                    `);
+                    this.log(`✅ Matrix Multiplication: ${JSON.stringify(matResult)}`, "success");
+                    
+                } catch (error) {
+                    this.log(`❌ Tensor Operations Error: ${error.message}`, "error");
+                    throw error;
+                }
+            }
+
+            async testNeuralNetworks() {
+                this.log("📋 Phase 8: Neural Network Tests", "info");
+                
+                try {
+                    // Test linear layer
+                    this.log("🔄 Testing nn.Linear...", "loading");
+                    const linearResult = await this.greed.runPython(`
+linear = torch.nn.Linear(4, 2)
+input_tensor = torch.randn(1, 4)
+output = linear(input_tensor)
+output.shape
+                    `);
+                    this.log(`✅ Linear Layer: ${JSON.stringify(linearResult)}`, "success");
+                    
+                    // Test sequential model
+                    this.log("🔄 Testing nn.Sequential...", "loading");
+                    await this.greed.runPython(`
+model = torch.nn.Sequential(
+    torch.nn.Linear(10, 5),
+    torch.nn.ReLU(),
+    torch.nn.Linear(5, 1)
+)
+test_input = torch.randn(1, 10)
+model_output = model(test_input)
+print(f"Model output shape: {model_output.shape}")
+                    `);
+                    this.log("✅ Sequential Model: Working", "success");
+                    
+                } catch (error) {
+                    this.log(`❌ Neural Network Error: ${error.message}`, "error");
+                    throw error;
+                }
+            }
+
+            async testCompleteAPI() {
+                this.log("📋 Phase 9: Complete API Surface Test", "info");
+                
+                try {
+                    // Test comprehensive PyTorch API
+                    const apiTests = [
+                        "torch.zeros(3, 3)",
+                        "torch.ones(2, 2)",
+                        "torch.randn(4, 4)",
+                        "torch.relu(torch.tensor([-1, 0, 1, 2]))",
+                        "torch.sum(torch.tensor([1, 2, 3, 4]))",
+                        "torch.mean(torch.tensor([1.0, 2.0, 3.0, 4.0]))"
+                    ];
+                    
+                    for (let i = 0; i < apiTests.length; i++) {
+                        const test = apiTests[i];
+                        this.log(`🔄 Testing: ${test}`, "loading");
+                        
+                        try {
+                            const result = await this.greed.runPython(`
+result = ${test}
+if hasattr(result, 'numpy'):
+    result.numpy().tolist()
+else:
+    result.item() if hasattr(result, 'item') else result
+                            `);
+                            this.log(`✅ ${test}: ${JSON.stringify(result)}`, "success");
+                        } catch (testError) {
+                            this.log(`❌ ${test}: ${testError.message}`, "error");
+                        }
+                    }
+                    
+                    this.log("✅ API Surface Test: Completed", "success");
+                    
+                } catch (error) {
+                    this.log(`❌ API Test Error: ${error.message}`, "error");
+                    // Don't throw - we want to see partial results
+                }
+            }
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', async () => {
+            const testSuite = new GreedJSTestSuite();
+            await testSuite.runAllTests();
+        });
+    </script>
+</body>
+</html>
