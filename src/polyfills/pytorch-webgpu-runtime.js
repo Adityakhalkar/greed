@@ -17,7 +17,17 @@ class WebGPUDevice:
     """Device abstraction for WebGPU operations"""
     def __init__(self, device_type: str = 'webgpu'):
         self.type = device_type
-        self.is_available = js.navigator.gpu is not js.undefined
+        # Safe WebGPU availability check with fallbacks
+        try:
+            self.is_available = (
+                hasattr(js, 'navigator') and 
+                hasattr(js.navigator, 'gpu') and 
+                js.navigator.gpu is not None and
+                js.navigator.gpu is not js.undefined
+            )
+        except (AttributeError, NameError):
+            # Fallback: assume WebGPU available, let greed instance handle detection
+            self.is_available = True
     
     def __str__(self):
         return f"device(type='{self.type}')"
@@ -590,10 +600,20 @@ nn.CrossEntropyLoss = CrossEntropyLoss
 
 def is_available():
     """Check if WebGPU is available"""
-    return js.navigator.gpu is not js.undefined
+    try:
+        return (
+            hasattr(js, 'navigator') and 
+            hasattr(js.navigator, 'gpu') and 
+            js.navigator.gpu is not None and
+            js.navigator.gpu is not js.undefined
+        )
+    except (AttributeError, NameError):
+        # Fallback: assume WebGPU available, let greed instance handle detection
+        return True
 
 # Make cuda point to webgpu for PyTorch compatibility
 class cuda_module:
+    @staticmethod
     def is_available():
         return is_available()
 

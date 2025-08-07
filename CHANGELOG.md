@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.3] - 2025-01-07
+
+### Fixed
+- **Critical WebGPU Detection Error**: Fixed `AttributeError: gpu` in Python runtime when accessing `js.navigator.gpu`
+- **Python Runtime Initialization**: Added comprehensive error handling for WebGPU availability detection
+- **Cross-Platform Compatibility**: Enhanced fallback mechanisms for environments where WebGPU API is not exposed to Python
+- **Device Detection**: Fixed static method decorator for `cuda_module.is_available()` method
+
+### Technical Details
+- Added safe WebGPU detection with `hasattr()` checks and exception handling
+- Implemented fallback strategy when `js.navigator` or `js.navigator.gpu` is not accessible from Python context
+- Fixed method binding issue in `cuda_module` class with `@staticmethod` decorator
+- Enhanced error recovery for Pyodide ↔ WebGPU integration edge cases
+
+### Enhanced Error Handling
+```python
+# Before (caused AttributeError)
+self.is_available = js.navigator.gpu is not js.undefined
+
+# After (safe with fallbacks)
+try:
+    self.is_available = (
+        hasattr(js, 'navigator') and 
+        hasattr(js.navigator, 'gpu') and 
+        js.navigator.gpu is not None and
+        js.navigator.gpu is not js.undefined
+    )
+except (AttributeError, NameError):
+    self.is_available = True  # Let greed instance handle detection
+```
+
 ## [2.1.2] - 2025-01-07
 
 ### Fixed
