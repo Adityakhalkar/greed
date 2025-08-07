@@ -90,7 +90,11 @@ class WebGPUTensor:
                 if isinstance(item, (list, tuple)):
                     result.extend(flatten(item))
                 else:
-                    result.append(float(item))
+                    try:
+                        result.append(float(item))
+                    except (TypeError, ValueError) as e:
+                        raise TypeError(f"Cannot convert tensor data to float. Got {type(item).__name__}: {item}. "
+                                      f"Tensor data must be numeric values (int, float, bool), not objects.")
             return result
         
         return flatten(data)
@@ -626,28 +630,29 @@ cuda = cuda_module()
 class TorchModule:
     """Main torch module containing all PyTorch functionality"""
     
-    # Tensor creation functions
-    tensor = tensor
-    zeros = zeros
-    ones = ones
-    randn = randn
-    ones_like = ones_like
-    zeros_like = zeros_like
-    
-    # Functional operations
-    add = add
-    matmul = matmul
-    relu = relu
-    
-    # Neural network module
-    nn = nn
-    
-    # Device utilities
-    cuda = cuda
-    is_available = is_available
-    
-    # Tensor types
-    Tensor = WebGPUTensor
+    def __init__(self):
+        # Tensor creation functions
+        self.tensor = tensor
+        self.zeros = zeros
+        self.ones = ones
+        self.randn = randn
+        self.ones_like = ones_like
+        self.zeros_like = zeros_like
+        
+        # Functional operations
+        self.add = add
+        self.matmul = matmul
+        self.relu = relu
+        
+        # Neural network module
+        self.nn = nn
+        
+        # Device utilities
+        self.cuda = cuda
+        self.is_available = is_available
+        
+        # Tensor types
+        self.Tensor = WebGPUTensor
     
     # Additional PyTorch compatibility functions
     def sum(self, input, dim=None, keepdim=False):

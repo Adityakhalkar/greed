@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.5] - 2025-01-07
+
+### Fixed
+- **Critical TorchModule TypeError**: Fixed `TypeError: float() argument must be a string or a real number, not 'TorchModule'`
+- **Class Attribute Circular Reference**: Resolved circular reference issue in TorchModule class attributes
+- **Tensor Data Validation**: Enhanced error handling with informative messages for invalid tensor data
+- **Module Instantiation**: Fixed proper initialization of TorchModule attributes in `__init__` method
+
+### Technical Details
+- Moved TorchModule class attributes from class-level to `__init__` method to prevent circular references
+- Enhanced `_flatten_data` method with better error handling and descriptive error messages  
+- Fixed attribute assignment pattern: `self.tensor = tensor` instead of `tensor = tensor`
+- Added TypeError catching with detailed context for debugging invalid tensor data
+
+### Error Handling Enhancement
+```python
+# Before (caused circular reference):
+class TorchModule:
+    tensor = tensor  # Class attribute - circular reference
+
+# After (proper initialization):
+class TorchModule:
+    def __init__(self):
+        self.tensor = tensor  # Instance attribute - safe
+```
+
+### Improved Error Messages
+- Clear error messages when invalid data types are passed to tensor creation
+- Specific type information and troubleshooting guidance for developers
+- Better debugging experience for tensor data validation issues
+
 ## [2.1.4] - 2025-01-07
 
 ### Fixed
