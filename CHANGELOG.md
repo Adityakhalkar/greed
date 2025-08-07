@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2025-01-07
+
+### Fixed
+- **Critical Python Syntax Error**: Fixed unterminated string literal in WebGPU PyTorch runtime (line 355)
+- **Library Initialization**: Resolved "SyntaxError: unterminated string literal (detected at line 349)" preventing GreedJS initialization
+- **String Formatting**: Corrected tensor representation formatting in `__repr__` method
+
+### Technical Details
+- Fixed errant backslash in `pytorch-webgpu-runtime.js:355`: `data_str[:-1] + ", ...]\\"` → `data_str[:-1] + ", ...]"`
+- Error was in WebGPU tensor representation method causing Python syntax parsing failure
+- All tensor operations and Python PyTorch code execution now work correctly
+
 ## [2.1.1] - 2025-01-07
 
 ### Fixed

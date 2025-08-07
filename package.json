@@ -1,6 +1,6 @@
 {
   "name": "greed.js",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Python-first PyTorch with WebGPU acceleration in browsers. Write pure Python PyTorch code, run on GPU through optimized compute shaders.",
   "main": "dist/greed.js",
   "module": "src/core/greed-v2.js",

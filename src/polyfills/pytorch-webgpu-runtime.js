@@ -352,7 +352,7 @@ class WebGPUTensor:
         """String representation"""
         data_str = str(self.numpy()[:10])  # Show first 10 elements
         if self.numel() > 10:
-            data_str = data_str[:-1] + ", ...]\\"
+            data_str = data_str[:-1] + ", ...]"
         
         return f"tensor({data_str}, device='{self.device}', dtype={self.dtype})"
     
